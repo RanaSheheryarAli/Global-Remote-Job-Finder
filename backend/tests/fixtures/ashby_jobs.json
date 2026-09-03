@@ -1,0 +1,29 @@
+{
+  "apiVersion": "1",
+  "jobs": [
+    {
+      "id": "ashby-101",
+      "title": "Staff Full Stack Engineer",
+      "location": "Remote",
+      "department": "Engineering",
+      "employmentType": "FullTime",
+      "publishedAt": "2026-09-03T07:10:00Z",
+      "isListed": true,
+      "isRemote": true,
+      "workplaceType": "Remote",
+      "descriptionHtml": "<p>Build the product.</p>",
+      "descriptionPlain": "Build the product.",
+      "jobUrl": "https://jobs.ashbyhq.com/Example/ashby-101",
+      "applyUrl": "https://jobs.ashbyhq.com/Example/ashby-101/application",
+      "compensation": {"compensationTierSummary": "$120K - $150K"}
+    },
+    {
+      "id": "ashby-unlisted",
+      "title": "Unlisted Role",
+      "location": "Remote",
+      "isListed": false,
+      "jobUrl": "https://jobs.ashbyhq.com/Example/ashby-unlisted",
+      "applyUrl": "https://jobs.ashbyhq.com/Example/ashby-unlisted/application"
+    }
+  ]
+}

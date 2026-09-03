@@ -1,0 +1,20 @@
+[
+  {
+    "id": "lever-101",
+    "text": "Senior Backend Engineer",
+    "categories": {
+      "location": "Remote - EMEA",
+      "commitment": "Full Time",
+      "team": "Engineering"
+    },
+    "country": null,
+    "workplaceType": "remote",
+    "description": "<p>Build reliable APIs.</p>",
+    "descriptionPlain": "Build reliable APIs.",
+    "lists": [{"text": "Requirements", "content": "<li>Python</li>"}],
+    "additional": "<p>Remote team.</p>",
+    "hostedUrl": "https://jobs.lever.co/example/lever-101",
+    "applyUrl": "https://jobs.lever.co/example/lever-101/apply",
+    "salaryRange": {"currency": "USD", "interval": "year", "min": 100000, "max": 140000}
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "jobs": [
+    {
+      "id": 101,
+      "title": "Senior Full Stack Engineer",
+      "updated_at": "2026-09-03T09:30:00Z",
+      "location": {"name": "Remote - Worldwide"},
+      "absolute_url": "https://boards.greenhouse.io/example/jobs/101",
+      "content": "<p>Build reliable products.</p>"
+    }
+  ],
+  "meta": {"total": 1}
+}
+

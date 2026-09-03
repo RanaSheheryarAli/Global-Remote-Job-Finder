@@ -1,0 +1,18 @@
+[
+  {
+    "last_updated": 1788451205,
+    "legal": "API Terms: Please link back to the URL on Remote OK and mention Remote OK as a source."
+  },
+  {
+    "id": "remoteok-101",
+    "date": "2026-09-03T06:00:00Z",
+    "company": "Example Remote Company",
+    "position": "Senior Python Engineer",
+    "location": "Worldwide",
+    "description": "&lt;p&gt;Build <strong>remote</strong> systems.&lt;/p&gt;",
+    "salary_min": 90000,
+    "salary_max": 130000,
+    "apply_url": "https://remoteok.com/remote-jobs/remoteok-101",
+    "url": "https://remoteok.com/remote-jobs/remoteok-101"
+  }
+]
