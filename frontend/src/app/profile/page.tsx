@@ -57,13 +57,12 @@ export default async function ProfilePage() {
     <main>
       <header className="adminHeader jobsHeader">
         <div>
-          <p className="eyebrow">PHASE 5 · PRIVATE PROFILE</p>
+          <p className="eyebrow">RESUME PROFILE</p>
           <h1>Candidate profile</h1>
           <p className="lead jobsLead">
             Reviewable resume facts used by the deterministic job matcher.
           </p>
         </div>
-        <nav className="headerNav"><a href="/matches">Ranked matches</a><a href="/">Overview</a></nav>
       </header>
 
       {!profile ? (
@@ -143,4 +142,3 @@ export default async function ProfilePage() {
     </main>
   );
 }
-

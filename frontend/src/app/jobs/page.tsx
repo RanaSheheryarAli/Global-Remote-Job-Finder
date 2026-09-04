@@ -104,13 +104,12 @@ export default async function JobsPage({
     <main>
       <header className="adminHeader jobsHeader">
         <div>
-          <p className="eyebrow">PHASE 4 TRUST LAYER</p>
+          <p className="eyebrow">VERIFIED OPPORTUNITIES</p>
           <h1>Trusted jobs</h1>
           <p className="lead jobsLead">
             Freshness, remote mode, Pakistan eligibility and Gulf context are kept separate.
           </p>
         </div>
-        <nav className="headerNav"><a href="/matches">Ranked matches</a><a href="/">Overview</a></nav>
       </header>
 
       {!jobs || !summary ? (

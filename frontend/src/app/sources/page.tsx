@@ -38,10 +38,9 @@ export default async function SourcesPage() {
     <main>
       <header className="adminHeader">
         <div>
-          <p className="eyebrow">PHASE 3 ADMIN</p>
+          <p className="eyebrow">JOB SOURCES</p>
           <h1>Source health</h1>
         </div>
-        <a href="/">Back to overview</a>
       </header>
 
       {!health ? (

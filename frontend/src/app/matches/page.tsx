@@ -107,13 +107,12 @@ export default async function MatchesPage({
     <main>
       <header className="adminHeader jobsHeader">
         <div>
-          <p className="eyebrow">PHASE 6 · DAILY GLOBAL DISCOVERY</p>
+          <p className="eyebrow">PERSONALISED RESULTS</p>
           <h1>Ranked matches</h1>
           <p className="lead jobsLead">
             Hard gates run first. Every visible score is a transparent 100-point calculation.
           </p>
         </div>
-        <nav className="headerNav"><a href="/profile">Candidate profile</a><a href="/jobs">Trusted jobs</a></nav>
       </header>
 
       <RefreshControl />
