@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
@@ -24,6 +25,7 @@ from app.models.source_run import SourceRun
 from app.trust.engine import TRUST_VERSION
 
 KARACHI = ZoneInfo("Asia/Karachi")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,14 +74,31 @@ class DailyRefreshService:
                 )
 
             adapter = build_source_adapter(source, self.settings)
+            logger.info(
+                "refresh_source_started refresh_run_id=%s source=%s",
+                self.refresh_run_id,
+                source.name,
+            )
             repository = SqlAlchemyIngestionRepository(
                 session,
                 refresh_run_id=self.refresh_run_id,
             )
             service = IngestionService(source=source, adapter=adapter, repository=repository)
             try:
-                report = await service.run()
+                report = await asyncio.wait_for(
+                    service.run(),
+                    timeout=self.settings.refresh_source_timeout_seconds,
+                )
                 await session.commit()
+                logger.info(
+                    "refresh_source_succeeded refresh_run_id=%s source=%s "
+                    "received=%s new=%s changed=%s",
+                    self.refresh_run_id,
+                    source.name,
+                    report.received_count,
+                    report.new_count,
+                    report.changed_count,
+                )
                 return SourceRefreshResult(
                     source.id,
                     source.name,
@@ -90,13 +109,19 @@ class DailyRefreshService:
                     unchanged_count=report.unchanged_count,
                     deactivated_count=report.deactivated_count,
                 )
-            except IngestionFailed as exc:
+            except (IngestionFailed, TimeoutError) as exc:
                 await session.rollback()
+                error = (
+                    "Source exceeded the "
+                    f"{self.settings.refresh_source_timeout_seconds}-second limit"
+                    if isinstance(exc, TimeoutError)
+                    else str(exc)
+                )
                 source = await session.get(SourceRegistry, source_id)
                 if source is not None:
                     mark_source_failure(
                         source,
-                        error=str(exc),
+                        error=error,
                         threshold=self.settings.source_circuit_breaker_threshold,
                         cooldown_minutes=self.settings.source_circuit_breaker_cooldown_minutes,
                     )
@@ -106,15 +131,21 @@ class DailyRefreshService:
                             refresh_run_id=self.refresh_run_id,
                             status="failed",
                             finished_at=utc_now(),
-                            error_summary=str(exc)[:4000],
+                            error_summary=error[:4000],
                         )
                     )
                     await session.commit()
+                logger.warning(
+                    "refresh_source_failed refresh_run_id=%s source=%s error=%s",
+                    self.refresh_run_id,
+                    source.name if source else source_id,
+                    error,
+                )
                 return SourceRefreshResult(
                     source_id,
                     source.name if source else "Unknown source",
                     "failed",
-                    error=str(exc)[:500],
+                    error=error[:500],
                 )
             finally:
                 await adapter.close()
@@ -198,6 +229,13 @@ class DailyRefreshService:
             run.stage = "completed"
             run.finished_at = utc_now()
             await session.commit()
+            logger.info(
+                "refresh_completed refresh_run_id=%s status=%s scored=%s failures=%s",
+                self.refresh_run_id,
+                run.status,
+                run.matches_scored,
+                len(run.failures),
+            )
 
     async def run(self) -> None:
         try:
@@ -216,6 +254,11 @@ class DailyRefreshService:
                 run.stage = "ingesting"
                 run.sources_total = len(source_ids)
                 await session.commit()
+                logger.info(
+                    "refresh_started refresh_run_id=%s sources_total=%s",
+                    self.refresh_run_id,
+                    len(source_ids),
+                )
 
             tasks = [
                 asyncio.create_task(self._ingest_source(source_id)) for source_id in source_ids
@@ -232,3 +275,4 @@ class DailyRefreshService:
                     run.finished_at = utc_now()
                     run.error_summary = str(exc)[:1000]
                     await session.commit()
+            logger.exception("refresh_failed refresh_run_id=%s", self.refresh_run_id)

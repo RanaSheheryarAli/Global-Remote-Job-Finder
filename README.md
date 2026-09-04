@@ -142,6 +142,11 @@ geographic eligibility, and automatically rebuilds matches for the current profi
 latest run after a page reload. The `/matches` screen provides the same workflow without terminal
 commands.
 
+Each source has a 10-minute processing limit. If no source completes for 15 minutes, status polling
+marks the run failed and unlocks the refresh button, preventing an interrupted web-process task from
+remaining stuck forever. Greenhouse boards are normalized from their content-enabled list response,
+so the refresh does not make a separate network request for every job.
+
 The match API supports `scope=pakistan|worldwide|unclear`, `freshness=verified_today`, and
 `freshness=newly_discovered&refresh_run_id=...`. `Remote` is a workplace mode only; worldwide and
 Pakistan eligibility require separate positive evidence with restrictions taking precedence.

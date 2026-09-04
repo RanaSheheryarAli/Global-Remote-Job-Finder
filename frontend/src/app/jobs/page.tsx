@@ -60,16 +60,22 @@ const filters = [
   { key: "gulf", label: "Gulf employers", query: "gulf_employer=true" },
 ];
 
-async function getData(mode: string): Promise<{
+async function getData(mode: string, page: number): Promise<{
   jobs: JobList | null;
   summary: TrustSummary | null;
 }> {
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? "http://localhost:8000";
   const selected = filters.find((filter) => filter.key === mode) ?? filters[0];
-  const suffix = selected.query ? `?${selected.query}` : "";
+  const params = new URLSearchParams();
+  if (selected.query) {
+    const [key, value] = selected.query.split("=");
+    params.set(key, value);
+  }
+  params.set("page", String(page));
+  params.set("page_size", "25");
   try {
     const [jobsResponse, summaryResponse] = await Promise.all([
-      fetch(`${baseUrl}/api/v1/jobs${suffix}`, { cache: "no-store" }),
+      fetch(`${baseUrl}/api/v1/jobs?${params.toString()}`, { cache: "no-store" }),
       fetch(`${baseUrl}/api/v1/jobs/trust/summary`, { cache: "no-store" }),
     ]);
     return {
@@ -96,10 +102,13 @@ function compensation(job: Job): string | null {
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; page?: string }>;
 }) {
-  const mode = (await searchParams).mode ?? "all";
-  const { jobs, summary } = await getData(mode);
+  const params = await searchParams;
+  const mode = params.mode ?? "all";
+  const requestedPage = Number.parseInt(params.page ?? "1", 10);
+  const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const { jobs, summary } = await getData(mode, page);
   return (
     <main>
       <header className="adminHeader jobsHeader">
@@ -203,8 +212,16 @@ export default async function JobsPage({
               })}
             </section>
           )}
+          <Pagination
+            basePath="/jobs"
+            page={jobs.page}
+            pageSize={jobs.page_size}
+            total={jobs.total}
+            query={{ mode: mode === "all" ? undefined : mode }}
+          />
         </>
       )}
     </main>
   );
 }
+import Pagination from "../pagination";

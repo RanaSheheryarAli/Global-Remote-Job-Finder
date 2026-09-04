@@ -1,4 +1,5 @@
 import RefreshControl from "./refresh-control";
+import Pagination from "../pagination";
 
 type Match = {
   id: string;
@@ -38,6 +39,8 @@ type Match = {
 type MatchList = {
   items: Match[];
   total: number;
+  page: number;
+  page_size: number;
   include_uncertain: boolean;
   scope: string;
   freshness: string | null;
@@ -63,11 +66,12 @@ async function getMatches(
   scope: string,
   freshness?: string,
   refreshRunId?: string,
+  page = 1,
 ): Promise<MatchList | null> {
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? "http://localhost:8000";
   try {
     const response = await fetch(
-      `${baseUrl}/api/v1/matches?scope=${scope}${freshness ? `&freshness=${freshness}` : ""}${refreshRunId ? `&refresh_run_id=${refreshRunId}` : ""}`,
+      `${baseUrl}/api/v1/matches?scope=${scope}&page=${page}&page_size=25${freshness ? `&freshness=${freshness}` : ""}${refreshRunId ? `&refresh_run_id=${refreshRunId}` : ""}`,
       { cache: "no-store" },
     );
     return response.ok ? ((await response.json()) as MatchList) : null;
@@ -89,7 +93,7 @@ async function getLatestRefresh(): Promise<LatestRefresh | null> {
 export default async function MatchesPage({
   searchParams,
 }: {
-    searchParams: Promise<{ scope?: string; freshness?: string; refresh_run_id?: string }>;
+    searchParams: Promise<{ scope?: string; freshness?: string; refresh_run_id?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const scope = ["pakistan", "worldwide", "unclear"].includes(params.scope ?? "")
@@ -102,7 +106,9 @@ export default async function MatchesPage({
   const refreshRunId = freshness === "newly_discovered"
     ? (params.refresh_run_id ?? latestRefresh?.id)
     : undefined;
-  const matches = await getMatches(scope, freshness, refreshRunId);
+  const requestedPage = Number.parseInt(params.page ?? "1", 10);
+  const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const matches = await getMatches(scope, freshness, refreshRunId, page);
   return (
     <main>
       <header className="adminHeader jobsHeader">
@@ -193,6 +199,17 @@ export default async function MatchesPage({
               ))}
             </section>
           )}
+          <Pagination
+            basePath="/matches"
+            page={matches.page}
+            pageSize={matches.page_size}
+            total={matches.total}
+            query={{
+              scope: scope === "pakistan" && !freshness ? undefined : scope,
+              freshness,
+              refresh_run_id: refreshRunId,
+            }}
+          />
         </>
       )}
     </main>

@@ -10,5 +10,6 @@ node_modules/
 dist/
 coverage/
 *.log
+*.tsbuildinfo
+.local-logs/
 .DS_Store
-

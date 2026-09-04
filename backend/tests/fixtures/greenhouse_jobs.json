@@ -3,12 +3,12 @@
     {
       "id": 101,
       "title": "Senior Full Stack Engineer",
+      "first_published": "2026-09-03T08:00:00Z",
       "updated_at": "2026-09-03T09:30:00Z",
       "location": {"name": "Remote - Worldwide"},
       "absolute_url": "https://boards.greenhouse.io/example/jobs/101",
-      "content": "<p>Build reliable products.</p>"
+      "content": "<p>Build <strong>reliable</strong> products with Python and TypeScript.</p>"
     }
   ],
   "meta": {"total": 1}
 }
-

@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     source_circuit_breaker_cooldown_minutes: int = 30
     resume_max_bytes: int = 2_000_000
     refresh_source_concurrency: int = Field(default=3, ge=1, le=8)
+    refresh_source_timeout_seconds: int = Field(default=600, ge=30, le=3600)
+    refresh_stale_after_seconds: int = Field(default=900, ge=60, le=7200)
 
 
 @lru_cache

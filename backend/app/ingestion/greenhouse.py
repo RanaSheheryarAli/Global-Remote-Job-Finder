@@ -64,12 +64,11 @@ class GreenhouseAdapter(PublicJsonAdapter):
         return summaries
 
     async def fetch_and_normalize(self, summary: SourceJobSummary) -> NormalizedJob:
-        detail = await self._get_json(
-            f"{self.base_url}/{self.board_token}/jobs/{summary.source_job_id}"
-        )
-        if not isinstance(detail, dict):
-            raise ValueError("Greenhouse returned a non-object job detail")
-        description_html = str(detail.get("content") or summary.raw_payload.get("content") or "")
+        # list_jobs requests content=true, so every field required for normalization is
+        # already present. Reusing that payload avoids hundreds of sequential detail
+        # requests and prevents one job deleted mid-refresh from failing its whole board.
+        detail = summary.raw_payload
+        description_html = str(detail.get("content") or "")
         source_url = require_https_url(str(detail.get("absolute_url") or summary.application_url))
         material_payload = {
             "source_job_id": summary.source_job_id,
@@ -82,7 +81,7 @@ class GreenhouseAdapter(PublicJsonAdapter):
             "source_updated_at": detail.get("updated_at")
             or (summary.source_updated_at.isoformat() if summary.source_updated_at else None),
         }
-        raw_payload = {"summary": summary.raw_payload, "detail": detail}
+        raw_payload = detail
         return NormalizedJob(
             source_job_id=summary.source_job_id,
             employer_name=self.company_name,
