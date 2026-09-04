@@ -21,11 +21,16 @@ from app.trust.engine import (
 
 
 class SqlAlchemyIngestionRepository:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, *, refresh_run_id: UUID | None = None) -> None:
         self.session = session
+        self.refresh_run_id = refresh_run_id
 
     async def start_run(self, source: SourceRegistry) -> SourceRun:
-        run = SourceRun(source=source, status="running")
+        run = SourceRun(
+            source=source,
+            refresh_run_id=self.refresh_run_id,
+            status="running",
+        )
         self.session.add(run)
         await self.session.flush()
         return run
@@ -75,6 +80,18 @@ class SqlAlchemyIngestionRepository:
         posting.pakistan_eligibility = trust.pakistan_eligibility
         posting.eligibility_positive_evidence = trust.positive_evidence
         posting.eligibility_negative_evidence = trust.negative_evidence
+        posting.geographic_scope = trust.geographic_scope
+        posting.allowed_country_codes = trust.allowed_country_codes
+        posting.excluded_country_codes = trust.excluded_country_codes
+        posting.allowed_regions = trust.allowed_regions
+        posting.residency_required = trust.residency_required
+        posting.work_authorization_required = trust.work_authorization_required
+        posting.timezone_constraints = trust.timezone_constraints
+        posting.global_remote = trust.global_remote
+        posting.eligibility_confidence = trust.eligibility_confidence
+        posting.geographic_positive_evidence = trust.geographic_positive_evidence
+        posting.geographic_restrictive_evidence = trust.geographic_restrictive_evidence
+        posting.geographic_conflicting_evidence = trust.geographic_conflicting_evidence
         posting.employer_headquarters_gcc = trust.employer_headquarters_gcc
         posting.job_location_gcc = trust.job_location_gcc
         posting.description_fingerprint = trust.description_fingerprint
@@ -146,6 +163,20 @@ class SqlAlchemyIngestionRepository:
             pakistan_eligibility=trust.pakistan_eligibility,
             eligibility_positive_evidence=trust.positive_evidence,
             eligibility_negative_evidence=trust.negative_evidence,
+            geographic_scope=trust.geographic_scope,
+            allowed_country_codes=trust.allowed_country_codes,
+            excluded_country_codes=trust.excluded_country_codes,
+            allowed_regions=trust.allowed_regions,
+            residency_required=trust.residency_required,
+            work_authorization_required=trust.work_authorization_required,
+            timezone_constraints=trust.timezone_constraints,
+            global_remote=trust.global_remote,
+            eligibility_confidence=trust.eligibility_confidence,
+            geographic_positive_evidence=trust.geographic_positive_evidence,
+            geographic_restrictive_evidence=trust.geographic_restrictive_evidence,
+            geographic_conflicting_evidence=trust.geographic_conflicting_evidence,
+            discovered_refresh_run_id=self.refresh_run_id,
+            updated_refresh_run_id=self.refresh_run_id,
             employer_headquarters_gcc=trust.employer_headquarters_gcc,
             job_location_gcc=trust.job_location_gcc,
             description_fingerprint=trust.description_fingerprint,
@@ -205,6 +236,8 @@ class SqlAlchemyIngestionRepository:
         posting.last_seen_active_at = utc_now()
         posting.is_active = True
         self._apply_trust(posting, trust)
+        if self.refresh_run_id:
+            posting.updated_refresh_run_id = self.refresh_run_id
         if duplicate:
             posting.canonical_job_id = duplicate.canonical_job_id or duplicate.id
             posting.is_canonical = False

@@ -15,7 +15,7 @@ from app.matching.ontology import (
 )
 from app.matching.profile import CandidateFacts
 
-MATCHER_VERSION = 1
+MATCHER_VERSION = 2
 KARACHI = ZoneInfo("Asia/Karachi")
 ENTRY_TERMS = re.compile(r"\b(intern(?:ship)?|junior|entry[- ]level|graduate)\b", re.I)
 UNRELATED_TERMS = re.compile(

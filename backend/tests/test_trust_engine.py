@@ -5,6 +5,7 @@ from app.trust.engine import (
     classify_job,
     description_similarity,
     is_strict_today,
+    normalize_employment_type,
     sanitize_html,
 )
 
@@ -59,10 +60,12 @@ def test_restricted_remote_role_is_not_pakistan_eligible() -> None:
     )
     assert result.remote_mode == "remote"
     assert result.pakistan_eligibility == "no"
+    assert result.global_remote is False
+    assert result.geographic_scope in {"single_country", "country_list"}
     assert result.negative_evidence
 
 
-def test_conflicting_location_evidence_stays_unknown() -> None:
+def test_explicit_country_restriction_overrides_worldwide_label() -> None:
     result = classify_job(
         make_job(
             description_text=("Work from anywhere. Candidates must be based in the United States.")
@@ -70,8 +73,10 @@ def test_conflicting_location_evidence_stays_unknown() -> None:
         source_type="greenhouse",
         employer_headquarters_gcc=False,
     )
-    assert result.pakistan_eligibility == "unknown"
+    assert result.pakistan_eligibility == "no"
+    assert result.global_remote is False
     assert result.positive_evidence and result.negative_evidence
+    assert result.geographic_conflicting_evidence
 
 
 def test_gulf_facts_remain_separate() -> None:
@@ -82,7 +87,154 @@ def test_gulf_facts_remain_separate() -> None:
     )
     assert result.employer_headquarters_gcc is False
     assert result.job_location_gcc is True
+    assert result.pakistan_eligibility == "no"
+
+
+def test_worldwide_remote_is_explicit_and_high_confidence() -> None:
+    result = classify_job(make_job(), source_type="ashby", employer_headquarters_gcc=False)
+    assert result.geographic_scope == "worldwide"
+    assert result.global_remote is True
+    assert result.pakistan_eligibility == "yes"
+    assert result.eligibility_confidence == "high"
+
+
+def test_bare_remote_is_not_worldwide_or_pakistan_eligible() -> None:
+    result = classify_job(
+        make_job(location_text="Remote", description_text="This is a remote engineering role."),
+        source_type="greenhouse",
+        employer_headquarters_gcc=False,
+    )
+    assert result.geographic_scope == "unknown"
+    assert result.global_remote is False
     assert result.pakistan_eligibility == "unknown"
+
+
+def test_anywhere_within_regions_is_restricted_not_global() -> None:
+    result = classify_job(
+        make_job(
+            location_text="Europe, North America",
+            description_text=(
+                "This role is open to candidates based in the US and Europe. "
+                "You can work from anywhere within these regions."
+            ),
+        ),
+        source_type="ashby",
+        employer_headquarters_gcc=False,
+    )
+    assert result.geographic_scope == "region"
+    assert result.allowed_regions == ["EU", "NA"]
+    assert result.global_remote is False
+    assert result.pakistan_eligibility == "no"
+
+
+def test_worldwide_company_copy_does_not_override_poland_location() -> None:
+    result = classify_job(
+        make_job(
+            location_text="Remote - Poland",
+            description_text=(
+                "Build infrastructure used by customers worldwide. "
+                "This is a remote engineering role."
+            ),
+        ),
+        source_type="greenhouse",
+        employer_headquarters_gcc=False,
+    )
+    assert result.allowed_country_codes == ["PL"]
+    assert result.geographic_scope == "single_country"
+    assert result.pakistan_eligibility == "no"
+    assert result.global_remote is False
+
+
+def test_coworking_anywhere_benefit_does_not_override_city_location() -> None:
+    result = classify_job(
+        make_job(
+            location_text="Mexico City",
+            description_text=(
+                "Use a co-working allowance anywhere in the world. "
+                "This is a remote engineering role."
+            ),
+        ),
+        source_type="ashby",
+        employer_headquarters_gcc=False,
+    )
+    assert result.allowed_country_codes == ["MX"]
+    assert result.pakistan_eligibility == "no"
+    assert result.global_remote is False
+
+
+def test_americas_location_overrides_generic_worldwide_copy() -> None:
+    result = classify_job(
+        make_job(
+            location_text="Home Based - Americas",
+            description_text="We shape compensation worldwide for this remote role.",
+        ),
+        source_type="greenhouse",
+        employer_headquarters_gcc=False,
+    )
+    assert result.geographic_scope == "region"
+    assert result.pakistan_eligibility == "no"
+    assert result.global_remote is False
+
+
+def test_bare_hybrid_and_office_locations_are_not_remote() -> None:
+    hybrid = classify_job(
+        make_job(location_text="Hybrid", description_text="Our customers operate worldwide."),
+        source_type="greenhouse",
+        employer_headquarters_gcc=False,
+    )
+    office = classify_job(
+        make_job(
+            location_text="Office Based - Tokyo, Japan",
+            description_text="Our customers operate worldwide.",
+        ),
+        source_type="greenhouse",
+        employer_headquarters_gcc=False,
+    )
+    assert hybrid.remote_mode == "hybrid"
+    assert hybrid.global_remote is False
+    assert office.remote_mode == "onsite"
+    assert office.global_remote is False
+
+
+def test_apac_without_country_list_requires_review() -> None:
+    result = classify_job(
+        make_job(location_text="Remote - APAC", description_text="Remote role for APAC."),
+        source_type="lever",
+        employer_headquarters_gcc=False,
+    )
+    assert result.geographic_scope == "region"
+    assert result.pakistan_eligibility == "unknown"
+    assert result.global_remote is False
+
+
+def test_explicit_pakistan_location_is_eligible_but_not_worldwide() -> None:
+    result = classify_job(
+        make_job(
+            location_text="Remote - Pakistan",
+            description_text="Open to candidates in Pakistan.",
+        ),
+        source_type="greenhouse",
+        employer_headquarters_gcc=False,
+    )
+    assert result.geographic_scope == "single_country"
+    assert result.allowed_country_codes == ["PK"]
+    assert result.pakistan_eligibility == "yes"
+    assert result.global_remote is False
+
+
+def test_provider_country_code_restricts_other_country_remote_role() -> None:
+    result = classify_job(
+        make_job(
+            location_text="Croatia",
+            description_text="This is a remote independent contractor role.",
+            source_country_codes=["HR"],
+        ),
+        source_type="lever",
+        employer_headquarters_gcc=False,
+    )
+    assert result.allowed_country_codes == ["HR"]
+    assert result.geographic_scope == "single_country"
+    assert result.pakistan_eligibility == "no"
 
 
 def test_republication_is_explicit() -> None:
@@ -135,3 +287,7 @@ def test_normalization_preserves_original_but_creates_comparable_fields() -> Non
         "interval": None,
         "summary": "$120K - $150K",
     }
+
+
+def test_long_provider_commitment_normalizes_to_bounded_contract() -> None:
+    assert normalize_employment_type("Independent Contractor - Project Based") == "contract"

@@ -9,6 +9,7 @@ from app.db.base import Base
 from app.models.common import UUIDPrimaryKeyMixin, utc_now
 
 if TYPE_CHECKING:
+    from app.models.refresh_run import RefreshRun
     from app.models.source_registry import SourceRegistry
 
 
@@ -18,6 +19,9 @@ class SourceRun(UUIDPrimaryKeyMixin, Base):
 
     source_registry_id: Mapped[UUID] = mapped_column(
         ForeignKey("source_registry.id", ondelete="CASCADE")
+    )
+    refresh_run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("refresh_runs.id", ondelete="SET NULL"), nullable=True
     )
     status: Mapped[str] = mapped_column(String(32), default="running")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
@@ -30,3 +34,4 @@ class SourceRun(UUIDPrimaryKeyMixin, Base):
     error_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     source: Mapped["SourceRegistry"] = relationship(back_populates="runs")
+    refresh_run: Mapped["RefreshRun | None"] = relationship()

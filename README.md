@@ -9,9 +9,12 @@ A private, API-first application that discovers remote jobs, preserves source ev
 - **Phase 3 - Source expansion and registry:** Lever, Ashby, and Remote OK adapters; provider-aware source validation; original/apply URL preservation; workplace, employment, compensation, and attribution fields; source health, circuit breakers, a 25-company live-validated registry, and a basic admin source-health page.
 - **Phase 4 - Trust layer:** normalized fields, Asia/Karachi freshness grades, separate remote-mode and Pakistan-eligibility classifiers with evidence, distinct Gulf employer/location facts, cross-source canonical deduplication, repost detection, closure history, trusted-job APIs, and a filterable frontend feed.
 - **Phase 5 - Resume profile and matching:** privacy-minimized PDF parsing, immutable profile versions, a technology synonym ontology, role/seniority/domain extraction, hard eligibility gates, deterministic 100-point scoring, matched/missing skills, evidence, ranked-match APIs, and profile/match screens.
+- **Phase 6 - Daily refresh and global matching:** one-click all-source refresh, durable progress and partial-failure reporting, automatic match rebuilding, explicit worldwide/country/region scope, Pakistan eligibility v2, provider country evidence, and worldwide/Pakistan/unclear match filters.
 
-Phases 6 and 7 remain intentionally deferred: the complete application workflow dashboard,
-persistent job actions, and notifications/private-launch operations.
+The Phase 6 design and acceptance criteria are recorded in
+[`docs/phase6-daily-refresh-global-matching-plan.md`](docs/phase6-daily-refresh-global-matching-plan.md).
+The application workflow dashboard, persistent job actions, notifications, and private-launch
+operations remain deferred to later phases.
 
 ## Repository structure
 
@@ -130,5 +133,18 @@ the matching tables. `GET /api/v1/profile` returns the current reviewable facts.
 Pakistan eligibility needs review. The matcher uses the plan's 35/20/15/15/10/5 component weights
 and never uses generative output for the numeric score.
 
+## Daily refresh and global scope
+
+`POST /api/v1/refresh-runs` starts one all-source refresh and returns immediately. The backend
+preserves per-source atomic ingestion, continues after individual source failures, reclassifies
+geographic eligibility, and automatically rebuilds matches for the current profile.
+`GET /api/v1/refresh-runs/{id}` reports progress and `GET /api/v1/refresh-runs/latest` restores the
+latest run after a page reload. The `/matches` screen provides the same workflow without terminal
+commands.
+
+The match API supports `scope=pakistan|worldwide|unclear`, `freshness=verified_today`, and
+`freshness=newly_discovered&refresh_run_id=...`. `Remote` is a workplace mode only; worldwide and
+Pakistan eligibility require separate positive evidence with restrictions taking precedence.
+
 The latest completed-phase verification is recorded in
-[`docs/test-report-phase5-2026-09-04.md`](docs/test-report-phase5-2026-09-04.md).
+[`docs/test-report-phase6-2026-09-04.md`](docs/test-report-phase6-2026-09-04.md).

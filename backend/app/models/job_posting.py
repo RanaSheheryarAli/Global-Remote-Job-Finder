@@ -49,6 +49,15 @@ class JobPosting(UUIDPrimaryKeyMixin, Base):
             "pakistan_eligibility IN ('yes', 'no', 'unknown')",
             name="ck_job_pakistan_eligibility",
         ),
+        CheckConstraint(
+            "geographic_scope IN ('worldwide', 'country_list', 'region', "
+            "'single_country', 'unknown')",
+            name="ck_job_geographic_scope",
+        ),
+        CheckConstraint(
+            "eligibility_confidence IN ('high', 'medium', 'low')",
+            name="ck_job_eligibility_confidence",
+        ),
     )
 
     source_registry_id: Mapped[UUID] = mapped_column(
@@ -93,6 +102,24 @@ class JobPosting(UUIDPrimaryKeyMixin, Base):
     pakistan_eligibility: Mapped[str] = mapped_column(String(16), default="unknown")
     eligibility_positive_evidence: Mapped[list[str]] = mapped_column(JSONB, default=list)
     eligibility_negative_evidence: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    geographic_scope: Mapped[str] = mapped_column(String(24), default="unknown")
+    allowed_country_codes: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    excluded_country_codes: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    allowed_regions: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    residency_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    work_authorization_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    timezone_constraints: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    global_remote: Mapped[bool] = mapped_column(Boolean, default=False)
+    eligibility_confidence: Mapped[str] = mapped_column(String(12), default="low")
+    geographic_positive_evidence: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    geographic_restrictive_evidence: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    geographic_conflicting_evidence: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    discovered_refresh_run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("refresh_runs.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_refresh_run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("refresh_runs.id", ondelete="SET NULL"), nullable=True
+    )
     employer_headquarters_gcc: Mapped[bool] = mapped_column(Boolean, default=False)
     job_location_gcc: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     description_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)

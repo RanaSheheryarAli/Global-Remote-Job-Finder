@@ -1,4 +1,4 @@
-# Architecture notes - Phases 1 through 5
+# Architecture notes - Phases 1 through 6
 
 ## Boundary
 
@@ -76,8 +76,10 @@ failures move a source from degraded to failing and open a configurable cooldown
 
 ## Deferred decisions
 
-The complete application workflow dashboard and persistent job actions belong to Phase 6. Alerts,
-authentication hardening, backups, and private-launch operations belong to Phase 7.
+Phase 6 implements the one-click daily refresh and trustworthy global matching workflow described in
+[`phase6-daily-refresh-global-matching-plan.md`](phase6-daily-refresh-global-matching-plan.md).
+The complete application workflow dashboard, persistent job actions, alerts, authentication
+hardening, backups, and private-launch operations remain deferred to later phases.
 
 ## Phase 5 resume and matching behavior
 
@@ -98,3 +100,20 @@ authentication hardening, backups, and private-launch operations belong to Phase
   scoring revision cannot silently overwrite earlier evaluation history.
 - A profile version owns its match records. Rebuilding the same profile/matcher version updates
   those records idempotently instead of creating duplicate scores.
+
+## Phase 6 refresh and geographic-scope behavior
+
+- `refresh_runs` stores durable progress and aggregate ingestion, eligibility, and matching counts.
+  Existing `source_runs` remain the per-provider audit boundary and optionally link to a refresh.
+- A PostgreSQL advisory transaction lock makes simultaneous start requests converge on one active
+  run. An abandoned active run can be replaced after the stale-run threshold.
+- Enabled sources run with bounded concurrency. Each source keeps its own transaction, so one
+  failure cannot publish partial source data or roll back another source's success.
+- New and changed postings retain the refresh run that discovered or updated them. Verified-today
+  publication and newly-discovered-in-this-refresh remain separate concepts and filters.
+- Geographic scope is stored separately from workplace mode. Structured provider countries and
+  location text are combined with evidence sentences; restrictions override generic remote text.
+- Worldwide, country-list, single-country, regional, and unknown scopes are explicit. `APAC` and
+  `EMEA` stay uncertain for Pakistan without country-level evidence.
+- After ingestion and trust classification, the current profile's deterministic matches rebuild
+  once. Without a profile, the refresh still completes and reports that matching was skipped.

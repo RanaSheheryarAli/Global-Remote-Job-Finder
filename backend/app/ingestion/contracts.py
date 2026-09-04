@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol
 from uuid import UUID
@@ -40,6 +40,7 @@ class NormalizedJob:
     compensation: dict[str, Any] | None = None
     attribution_name: str | None = None
     attribution_url: str | None = None
+    source_country_codes: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

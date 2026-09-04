@@ -96,6 +96,8 @@ class LeverAdapter(PublicJsonAdapter):
             allowed_hosts=LEVER_HOSTS,
         )
         compensation = job.get("salaryRange")
+        country = str(job.get("country") or "").strip().upper()
+        country_codes = [country] if re.fullmatch(r"[A-Z]{2}", country) else []
         material_payload = {
             "source_job_id": summary.source_job_id,
             "title": summary.title,
@@ -106,6 +108,7 @@ class LeverAdapter(PublicJsonAdapter):
             "workplace_type": job.get("workplaceType"),
             "employment_type": (job.get("categories") or {}).get("commitment"),
             "compensation": compensation,
+            "country_codes": country_codes,
         }
         return NormalizedJob(
             source_job_id=summary.source_job_id,
@@ -123,4 +126,5 @@ class LeverAdapter(PublicJsonAdapter):
             workplace_type=job.get("workplaceType"),
             employment_type=(job.get("categories") or {}).get("commitment"),
             compensation=compensation if isinstance(compensation, dict) else None,
+            source_country_codes=country_codes,
         )

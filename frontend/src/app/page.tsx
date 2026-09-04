@@ -43,9 +43,9 @@ const phases = [
   },
   {
     name: "Phase 6",
-    title: "Application workflow",
-    state: "Planned",
-    details: "Full daily dashboard, saved jobs, application status and private notes.",
+    title: "Daily refresh and global matching",
+    state: "Implemented",
+    details: "One-click source refresh, strict geographic eligibility, progress and automatic ranking.",
   },
 ];
 
@@ -83,7 +83,7 @@ export default async function Home() {
       <section className="nextStep">
         <div>
           <p className="eyebrow">AVAILABLE NOW</p>
-          <h2>Review trusted jobs, source evidence, and ingestion health.</h2>
+          <h2>Fetch today's jobs and review globally eligible resume matches.</h2>
         </div>
         <div className="actions">
           <a href="/matches">Ranked matches</a>

@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 from app.ingestion.contracts import NormalizedJob
 
-TRUST_VERSION = 1
+TRUST_VERSION = 3
 KARACHI = ZoneInfo("Asia/Karachi")
 SAFE_TAGS = {"p", "br", "strong", "em", "b", "i", "ul", "ol", "li", "h2", "h3", "h4", "a"}
 DROP_TAGS = {"script", "style", "iframe", "object", "embed", "form"}
@@ -31,41 +31,106 @@ OTHER_LOCATION_TERMS = {
     "US": ("united states", "usa", "u.s."),
     "CA": ("canada",),
     "GB": ("united kingdom", "uk", "great britain"),
-    "EU": ("european union", "europe", "eu"),
+    "AU": ("australia",),
+    "NZ": ("new zealand",),
+    "IN": ("india",),
+    "DE": ("germany",),
+    "FR": ("france",),
+    "NL": ("netherlands",),
+    "ES": ("spain",),
+    "PT": ("portugal",),
+    "IE": ("ireland",),
+    "BR": ("brazil",),
+    "CN": ("china",),
+    "CO": ("colombia",),
+    "HR": ("croatia",),
+    "IT": ("italy",),
+    "JP": ("japan",),
+    "KR": ("south korea", "korea"),
+    "LU": ("luxembourg",),
+    "MX": ("mexico",),
+    "MY": ("malaysia",),
+    "PH": ("philippines",),
+    "PL": ("poland",),
+    "SE": ("sweden",),
+    "SG": ("singapore",),
+    "TW": ("taiwan",),
+    "UY": ("uruguay",),
+}
+REGION_TERMS = {
+    "NA": ("north america", "amer", "americas"),
+    "EU": ("european union", "europe"),
     "APAC": ("apac", "asia pacific"),
     "EMEA": ("emea",),
+    "LATAM": ("latam", "latin america"),
+    "GCC": ("gcc", "gulf cooperation council"),
 }
-POSITIVE_PATTERNS = (
+WORLDWIDE_PATTERNS = (
     re.compile(r"\bworldwide\b", re.I),
-    re.compile(r"\bwork from anywhere\b", re.I),
     re.compile(r"\banywhere in the world\b", re.I),
+    re.compile(r"\bwork from any country\b", re.I),
     re.compile(r"\bglobally remote\b", re.I),
-    re.compile(r"\bremote anywhere\b", re.I),
+    re.compile(r"\bremote (?:from )?anywhere in the world\b", re.I),
+)
+DESCRIPTION_WORLDWIDE_PATTERNS = (
+    re.compile(r"\bglobally remote\b", re.I),
+    re.compile(r"\bwork remotely from anywhere in the world\b", re.I),
+    re.compile(r"\bwork from any country\b", re.I),
+    re.compile(
+        r"\b(?:this|the) (?:role|position|job)\b.{0,50}\b"
+        r"(?:worldwide|anywhere in the world|open globally)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\bwe (?:can |do )?(?:hire|employ|accept candidates?)\b.{0,60}\b"
+        r"(?:worldwide|globally|anywhere in the world|from any country)\b",
+        re.I,
+    ),
+)
+PAKISTAN_PATTERNS = (
     re.compile(r"\b(?:open to|hiring|candidates? (?:in|from)|located in) Pakistan\b", re.I),
 )
-NEGATIVE_PATTERNS = (
+RESTRICTIVE_PATTERNS = (
     re.compile(
-        r"\b(?:US|U\.S\.|USA|United States|Canada|UK|United Kingdom|EU|European Union)"
-        r"[- ]only\b",
+        r"\b(?:US|U\.S\.|USA|United States|Canada|UK|United Kingdom|EU|European Union|"
+        r"Europe|North America|LATAM|Latin America|APAC|EMEA)[- ]only\b",
         re.I,
     ),
     re.compile(
-        r"\bremote\s+(?:within|in)\s+(?:the\s+)?"
-        r"(?:US|U\.S\.|USA|United States|Canada|UK|United Kingdom|EU|European Union)\b",
+        r"\b(?:remote|work|working|anywhere)\s+(?:from\s+)?(?:within|in)\s+"
+        r"(?:this|these|the)?\s*(?:country|countries|region|regions|US|U\.S\.|USA|"
+        r"United States|Canada|UK|United Kingdom|EU|European Union|Europe|North America|"
+        r"LATAM|Latin America|APAC|EMEA|GCC)\b",
         re.I,
     ),
     re.compile(
-        r"\b(?:candidates?|applicants?|you)\s+(?:must|need to|required to)\s+"
-        r"(?:be\s+)?(?:based|located|reside|live)\s+in\b",
+        r"\b(?:role is open to|open to|candidates?|applicants?|you)\b.{0,80}\b"
+        r"(?:must|need to|required to|based|located|reside|live)\b.{0,30}\bin\b",
         re.I,
     ),
+    re.compile(r"\b(?:must|need to|required to)\s+(?:be\s+)?based\b", re.I),
     re.compile(r"\b(?:authorized|eligible) to work in (?:the )?(?:US|USA|United States)\b", re.I),
-    re.compile(r"\bUS work authorization required\b", re.I),
+    re.compile(r"\b(?:work authorization|right to work)\b.{0,40}\b(?:required|must|need)\b", re.I),
 )
-REGIONAL_PATTERNS = (
-    re.compile(r"\bAPAC\b", re.I),
-    re.compile(r"\bEMEA\b", re.I),
-    re.compile(r"\bGCC\b", re.I),
+EXCLUSION_PATTERNS = (
+    re.compile(r"\b(?:worldwide|anywhere).{0,40}\b(?:except|excluding|not available in)\b", re.I),
+    re.compile(r"\b(?:except|excluding)\s+(?:candidates?\s+)?(?:in|from)\b", re.I),
+)
+RESIDENCY_PATTERNS = (
+    re.compile(
+        r"\b(?:must|required to|need to)\s+(?:be\s+)?(?:resident|reside|live|based)\b",
+        re.I,
+    ),
+    re.compile(r"\b(?:tax|legal) residency\b", re.I),
+)
+AUTHORIZATION_PATTERNS = (
+    re.compile(r"\bwork authorization\b", re.I),
+    re.compile(r"\bright to work\b", re.I),
+    re.compile(r"\bauthorized to work\b", re.I),
+)
+TIMEZONE_PATTERNS = (
+    re.compile(r"\b(?:UTC|GMT)\s*[+-]\s*\d{1,2}\b", re.I),
+    re.compile(r"\b(?:time ?zone|working hours|hours overlap)\b", re.I),
 )
 STOPWORDS = {
     "and",
@@ -134,6 +199,18 @@ class TrustClassification:
     pakistan_eligibility: str
     positive_evidence: list[str]
     negative_evidence: list[str]
+    geographic_scope: str
+    allowed_country_codes: list[str]
+    excluded_country_codes: list[str]
+    allowed_regions: list[str]
+    residency_required: bool
+    work_authorization_required: bool
+    timezone_constraints: list[str]
+    global_remote: bool
+    eligibility_confidence: str
+    geographic_positive_evidence: list[str]
+    geographic_restrictive_evidence: list[str]
+    geographic_conflicting_evidence: list[str]
     employer_headquarters_gcc: bool
     job_location_gcc: bool | None
     description_fingerprint: str
@@ -152,17 +229,17 @@ def normalize_employment_type(value: str | None) -> str | None:
     compact = re.sub(r"[^a-z]", "", (value or "").casefold())
     if not compact:
         return None
-    mappings = {
-        "fulltime": "full-time",
-        "permanent": "full-time",
-        "parttime": "part-time",
-        "contract": "contract",
-        "contractor": "contract",
-        "temporary": "temporary",
-        "intern": "internship",
-        "internship": "internship",
-    }
-    return mappings.get(compact, clean_text(value).casefold())
+    if "fulltime" in compact or "permanent" in compact:
+        return "full-time"
+    if "parttime" in compact:
+        return "part-time"
+    if "contract" in compact or "freelance" in compact:
+        return "contract"
+    if "temporary" in compact:
+        return "temporary"
+    if "intern" in compact:
+        return "internship"
+    return clean_text(value).casefold()[:32]
 
 
 def _number(value: Any) -> float | None:
@@ -230,9 +307,9 @@ def _evidence(text: str, patterns: tuple[re.Pattern[str], ...]) -> list[str]:
 def _structured_locations(location: str | None) -> list[dict[str, str]]:
     text = (location or "").casefold()
     result: list[dict[str, str]] = []
-    for code, terms in {**GCC_TERMS, **OTHER_LOCATION_TERMS}.items():
+    for code, terms in {**GCC_TERMS, **OTHER_LOCATION_TERMS, **REGION_TERMS}.items():
         if any(re.search(rf"\b{re.escape(term)}\b", text, re.I) for term in terms):
-            kind = "region" if code in {"EU", "APAC", "EMEA"} else "country"
+            kind = "region" if code in REGION_TERMS else "country"
             result.append({"kind": kind, "code": code})
     if "worldwide" in text or "anywhere" in text:
         result.append({"kind": "scope", "code": "WORLDWIDE"})
@@ -263,11 +340,19 @@ def _freshness(
 
 def _remote_mode(job: NormalizedJob) -> str:
     workplace = (job.workplace_type or "").casefold()
-    combined = f"{job.location_text or ''} {job.description_text}".casefold()
-    if "hybrid" in workplace or re.search(r"\bhybrid (?:role|work|position)\b", combined):
+    location = clean_text(job.location_text).casefold()
+    combined = f"{location} {job.description_text}".casefold()
+    if "hybrid" in workplace or location == "hybrid" or re.search(
+        r"\bhybrid (?:role|work|position)\b", combined
+    ):
         return "hybrid"
-    if workplace in {"on-site", "onsite", "office"} or re.search(
+    if (
+        workplace in {"on-site", "onsite", "office"}
+        or location in {"in-office", "office", "office based", "onsite", "on-site"}
+        or location.startswith("office based")
+        or re.search(
         r"\b(?:on-site|onsite) (?:role|work|position)\b", combined
+        )
     ):
         return "onsite"
     if "remote" in workplace or "remote" in (job.location_text or "").casefold():
@@ -277,22 +362,194 @@ def _remote_mode(job: NormalizedJob) -> str:
     return "unknown"
 
 
-def _eligibility(job: NormalizedJob, remote_mode: str) -> tuple[str, list[str], list[str]]:
-    text = f"{job.location_text or ''}. {job.description_text}"
-    positive = _evidence(text, POSITIVE_PATTERNS)
-    if "pakistan" in (job.location_text or "").casefold() and job.location_text not in positive:
-        positive.insert(0, clean_text(job.location_text))
-    negative = _evidence(text, NEGATIVE_PATTERNS)
-    regional = _evidence(text, REGIONAL_PATTERNS)
+def _location_codes(text: str) -> tuple[set[str], set[str]]:
+    lowered = text.casefold()
+    countries = {
+        code
+        for code, terms in {**GCC_TERMS, **OTHER_LOCATION_TERMS}.items()
+        if any(re.search(rf"\b{re.escape(term)}\b", lowered, re.I) for term in terms)
+    }
+    regions = {
+        code
+        for code, terms in REGION_TERMS.items()
+        if any(re.search(rf"\b{re.escape(term)}\b", lowered, re.I) for term in terms)
+    }
+    return countries, regions
+
+
+def _normalize_source_country(value: str) -> str | None:
+    cleaned = clean_text(value).upper()
+    aliases = {
+        "USA": "US",
+        "UNITED STATES": "US",
+        "UNITED KINGDOM": "GB",
+        "UK": "GB",
+        "PAKISTAN": "PK",
+        "UAE": "AE",
+        "UNITED ARAB EMIRATES": "AE",
+    }
+    if cleaned in aliases:
+        return aliases[cleaned]
+    return cleaned if re.fullmatch(r"[A-Z]{2}", cleaned) else None
+
+
+def _location_is_generic(location: str) -> bool:
+    compact = re.sub(r"[^a-z]+", " ", location.casefold()).strip()
+    if not compact:
+        return True
+    return compact in {
+        "remote",
+        "fully remote",
+        "remote work",
+        "global",
+        "remote global",
+        "worldwide",
+        "remote worldwide",
+        "home based worldwide",
+        "anywhere",
+        "n a",
+    }
+
+
+def _geographic_eligibility(
+    job: NormalizedJob,
+    remote_mode: str,
+) -> tuple[
+    str,
+    str,
+    list[str],
+    list[str],
+    list[str],
+    bool,
+    bool,
+    list[str],
+    bool,
+    str,
+    list[str],
+    list[str],
+    list[str],
+]:
+    location = clean_text(job.location_text)
+    text = f"{location}. {job.description_text}"
+    location_worldwide = _evidence(location, WORLDWIDE_PATTERNS)
+    if re.search(r"\bglobal\b", location, re.I):
+        location_worldwide = list(dict.fromkeys([location, *location_worldwide]))[:5]
+    description_worldwide = _evidence(job.description_text, DESCRIPTION_WORLDWIDE_PATTERNS)
+    worldwide = list(dict.fromkeys([*location_worldwide, *description_worldwide]))[:5]
+    pakistan = _evidence(text, PAKISTAN_PATTERNS)
+    restrictive = _evidence(text, RESTRICTIVE_PATTERNS)
+    exclusions = _evidence(text, EXCLUSION_PATTERNS)
+    residency = bool(_evidence(text, RESIDENCY_PATTERNS))
+    authorization = bool(_evidence(text, AUTHORIZATION_PATTERNS))
+    timezone_constraints = _evidence(text, TIMEZONE_PATTERNS)
+
+    location_countries, location_regions = _location_codes(location)
+    restriction_text = " ".join(restrictive)
+    restricted_countries, restricted_regions = _location_codes(restriction_text)
+    exclusion_countries, _ = _location_codes(" ".join(exclusions))
+    source_countries = {
+        code
+        for value in job.source_country_codes
+        if (code := _normalize_source_country(value)) is not None
+    }
+    allowed_countries = sorted(location_countries | restricted_countries | source_countries)
+    allowed_regions = sorted(location_regions | restricted_regions)
+    excluded_countries = sorted(exclusion_countries)
+    location_restricted = bool(location) and not _location_is_generic(location)
+
+    positive = list(dict.fromkeys([*worldwide, *pakistan]))[:5]
+    if "PK" in location_countries and location and location not in positive:
+        positive.insert(0, location)
+    negative = list(dict.fromkeys([*restrictive, *exclusions]))[:5]
     if remote_mode in {"hybrid", "onsite"}:
         negative.insert(0, f"Work mode classified as {remote_mode}")
-    if positive and negative:
-        return "unknown", positive, negative
-    if negative:
-        return "no", positive, negative
-    if positive:
-        return "yes", positive, negative
-    return "unknown", positive, regional
+
+    conflicts: list[str] = []
+    global_remote = False
+    confidence = "low"
+    scope = "unknown"
+    eligibility = "unknown"
+
+    if remote_mode in {"hybrid", "onsite"}:
+        eligibility = "no"
+        confidence = "high"
+    elif worldwide and exclusions and not location_restricted:
+        scope = "country_list"
+        eligibility = "no" if "PK" in exclusion_countries else "yes"
+        confidence = "high" if exclusion_countries else "medium"
+    elif "PK" in set(allowed_countries) or pakistan:
+        scope = "single_country" if allowed_countries == ["PK"] else "country_list"
+        eligibility = "yes"
+        confidence = "high"
+        if worldwide:
+            conflicts = list(dict.fromkeys([*worldwide, location]))[:5]
+    elif location_countries or restricted_countries or source_countries:
+        scope = "single_country" if len(allowed_countries) == 1 else "country_list"
+        eligibility = "no"
+        confidence = "high"
+        if worldwide:
+            conflicts = list(dict.fromkeys([*worldwide, *restrictive, location]))[:5]
+    elif location_regions or restricted_regions:
+        scope = "region"
+        if set(allowed_regions) & {"NA", "EU", "LATAM"}:
+            eligibility = "no"
+            confidence = "high"
+        else:
+            eligibility = "unknown"
+            confidence = "medium"
+        if worldwide:
+            conflicts = list(dict.fromkeys([*worldwide, *restrictive, location]))[:5]
+    elif location_restricted:
+        # A provider location such as a city or an unrecognised country is still a
+        # geographic restriction. Prefer a safe exclusion over treating a generic
+        # use of "worldwide" in company copy as permission to work from anywhere.
+        scope = "unknown"
+        eligibility = "no"
+        confidence = "high"
+        if location not in negative:
+            negative.insert(0, location)
+        if worldwide:
+            conflicts = list(dict.fromkeys([*worldwide, location]))[:5]
+    elif worldwide:
+        if exclusions:
+            scope = "country_list"
+            eligibility = "no" if "PK" in exclusion_countries else "yes"
+            confidence = "high" if exclusion_countries else "medium"
+        elif restrictive:
+            conflicts = list(dict.fromkeys([*worldwide, *restrictive, location]))[:5]
+            scope = "unknown"
+            eligibility = "unknown"
+            confidence = "low"
+        else:
+            scope = "worldwide"
+            eligibility = "yes"
+            global_remote = True
+            confidence = "high"
+    elif remote_mode == "remote":
+        scope = "unknown"
+        eligibility = "unknown"
+
+    if (residency or authorization) and eligibility == "yes" and "PK" not in allowed_countries:
+        eligibility = "unknown"
+        global_remote = False
+        confidence = "low"
+        conflicts = list(dict.fromkeys([*conflicts, *positive, *negative]))[:5]
+
+    return (
+        eligibility,
+        scope,
+        allowed_countries,
+        excluded_countries,
+        allowed_regions,
+        residency,
+        authorization,
+        timezone_constraints,
+        global_remote,
+        confidence,
+        positive,
+        negative,
+        conflicts,
+    )
 
 
 def description_similarity(left: str, right: str) -> float:
@@ -325,7 +582,21 @@ def classify_job(
         source_type, job.first_published_at, prior_published_at
     )
     remote_mode = _remote_mode(job)
-    eligibility, positive, negative = _eligibility(job, remote_mode)
+    (
+        eligibility,
+        geographic_scope,
+        allowed_country_codes,
+        excluded_country_codes,
+        allowed_regions,
+        residency_required,
+        work_authorization_required,
+        timezone_constraints,
+        global_remote,
+        eligibility_confidence,
+        positive,
+        negative,
+        conflicts,
+    ) = _geographic_eligibility(job, remote_mode)
     gcc_codes = set(GCC_TERMS)
     location_codes = {item["code"] for item in locations}
     if location_codes & gcc_codes:
@@ -355,6 +626,18 @@ def classify_job(
         pakistan_eligibility=eligibility,
         positive_evidence=positive,
         negative_evidence=negative,
+        geographic_scope=geographic_scope,
+        allowed_country_codes=allowed_country_codes,
+        excluded_country_codes=excluded_country_codes,
+        allowed_regions=allowed_regions,
+        residency_required=residency_required,
+        work_authorization_required=work_authorization_required,
+        timezone_constraints=timezone_constraints,
+        global_remote=global_remote,
+        eligibility_confidence=eligibility_confidence,
+        geographic_positive_evidence=positive,
+        geographic_restrictive_evidence=negative,
+        geographic_conflicting_evidence=conflicts,
         employer_headquarters_gcc=employer_headquarters_gcc,
         job_location_gcc=job_location_gcc,
         description_fingerprint=description_fingerprint,

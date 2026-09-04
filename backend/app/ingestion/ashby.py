@@ -73,6 +73,21 @@ class AshbyAdapter(PublicJsonAdapter):
         description_html = str(job.get("descriptionHtml") or "")
         published_at = parse_datetime(job.get("publishedAt"))
         compensation = job.get("compensation")
+        addresses = [
+            (job.get("address") or {}).get("postalAddress") or {},
+            *[
+                item.get("address") or {}
+                for item in job.get("secondaryLocations", [])
+                if isinstance(item, dict)
+            ],
+        ]
+        country_codes = sorted(
+            {
+                str(address.get("addressCountry") or "").strip().upper()
+                for address in addresses
+                if address.get("addressCountry")
+            }
+        )
         material_payload = {
             "source_job_id": summary.source_job_id,
             "title": summary.title,
@@ -84,6 +99,7 @@ class AshbyAdapter(PublicJsonAdapter):
             "workplace_type": job.get("workplaceType"),
             "employment_type": job.get("employmentType"),
             "compensation": compensation,
+            "country_codes": country_codes,
         }
         return NormalizedJob(
             source_job_id=summary.source_job_id,
@@ -101,4 +117,5 @@ class AshbyAdapter(PublicJsonAdapter):
             workplace_type=job.get("workplaceType"),
             employment_type=job.get("employmentType"),
             compensation=compensation if isinstance(compensation, dict) else None,
+            source_country_codes=country_codes,
         )

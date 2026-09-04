@@ -1,5 +1,7 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -9,8 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.routes.jobs import _job_read
 from app.core.config import get_settings
 from app.db.session import get_session
-from app.matching.engine import MATCHER_VERSION, candidate_facts_from_record, score_job
+from app.matching.engine import MATCHER_VERSION
 from app.matching.profile import parse_resume_pdf
+from app.matching.service import rebuild_profile_matches
 from app.models.candidate_profile import CandidateProfile
 from app.models.job_match import JobMatch
 from app.models.job_posting import JobPosting
@@ -22,7 +25,6 @@ from app.schemas.matching import (
     MatchRebuildRead,
     MatchSummaryRead,
 )
-from app.trust.engine import TRUST_VERSION
 
 router = APIRouter(tags=["matching"])
 KARACHI = ZoneInfo("Asia/Karachi")
@@ -130,64 +132,15 @@ async def rebuild_matches(
     session: AsyncSession = Depends(get_session),
 ) -> MatchRebuildRead:
     profile = await _current_profile(session)
-    facts = candidate_facts_from_record(profile)
-    jobs = list(
-        await session.scalars(
-            select(JobPosting).where(
-                JobPosting.is_active.is_(True),
-                JobPosting.is_canonical.is_(True),
-                JobPosting.trust_version == TRUST_VERSION,
-            )
-        )
-    )
-    existing = {
-        match.job_posting_id: match
-        for match in await session.scalars(
-            select(JobMatch).where(
-                JobMatch.candidate_profile_id == profile.id,
-                JobMatch.matcher_version == MATCHER_VERSION,
-            )
-        )
-    }
-    strict_visible = 0
-    uncertain_visible = 0
-    excluded = 0
-    now = datetime.now(KARACHI)
-    for job in jobs:
-        result = score_job(job, facts, now=now)
-        match = existing.get(job.id)
-        if match is None:
-            match = JobMatch(
-                candidate_profile_id=profile.id,
-                job_posting_id=job.id,
-                matcher_version=MATCHER_VERSION,
-                score=result.score,
-                score_label=result.score_label,
-            )
-            session.add(match)
-        match.hard_gate_passed = result.hard_gate_passed
-        match.uncertain_gate_passed = result.uncertain_gate_passed
-        match.gate_reasons = result.gate_reasons
-        match.score = result.score
-        match.score_label = result.score_label
-        match.components = result.components
-        match.matched_skills = result.matched_skills
-        match.missing_skills = result.missing_skills
-        match.evidence = result.evidence
-        if result.hard_gate_passed and result.score >= 55:
-            strict_visible += 1
-        elif result.uncertain_gate_passed and result.score >= 55:
-            uncertain_visible += 1
-        else:
-            excluded += 1
+    result = await rebuild_profile_matches(session, profile)
     await session.commit()
     return MatchRebuildRead(
-        profile_version=profile.version,
-        matcher_version=MATCHER_VERSION,
-        scored=len(jobs),
-        strict_visible=strict_visible,
-        uncertain_visible=uncertain_visible,
-        excluded=excluded,
+        profile_version=result.profile_version,
+        matcher_version=result.matcher_version,
+        scored=result.scored,
+        strict_visible=result.strict_visible,
+        uncertain_visible=result.uncertain_visible,
+        excluded=result.excluded,
     )
 
 
@@ -242,6 +195,9 @@ async def list_matches(
     min_score: int = Query(default=55, ge=0, le=100),
     include_uncertain: bool = False,
     strict_today: bool = False,
+    scope: Literal["pakistan", "worldwide", "unclear"] = "pakistan",
+    freshness: Literal["verified_today", "newly_discovered"] | None = None,
+    refresh_run_id: UUID | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> MatchListRead:
     profile = await _current_profile(session)
@@ -252,16 +208,40 @@ async def list_matches(
         JobPosting.is_active.is_(True),
         JobPosting.is_canonical.is_(True),
     ]
-    if include_uncertain:
+    if scope == "unclear":
+        conditions.extend(
+            [
+                JobMatch.uncertain_gate_passed.is_(True),
+                JobMatch.hard_gate_passed.is_(False),
+                JobPosting.pakistan_eligibility == "unknown",
+            ]
+        )
+    elif include_uncertain:
         conditions.append(JobMatch.uncertain_gate_passed.is_(True))
     else:
         conditions.append(JobMatch.hard_gate_passed.is_(True))
-    if strict_today:
+    if scope == "worldwide":
+        conditions.append(JobPosting.global_remote.is_(True))
+    if strict_today or freshness == "verified_today":
         conditions.extend(
             [
                 JobPosting.freshness_grade.in_(("A", "B")),
                 JobPosting.published_local_date == datetime.now(KARACHI).date(),
             ]
+        )
+    if freshness == "newly_discovered":
+        if refresh_run_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail="refresh_run_id is required for newly_discovered matches",
+            )
+        conditions.append(JobPosting.discovered_refresh_run_id == refresh_run_id)
+    elif refresh_run_id is not None:
+        conditions.append(
+            or_(
+                JobPosting.discovered_refresh_run_id == refresh_run_id,
+                JobPosting.updated_refresh_run_id == refresh_run_id,
+            )
         )
 
     join = (
@@ -313,5 +293,7 @@ async def list_matches(
         page=page,
         page_size=page_size,
         include_uncertain=include_uncertain,
+        scope=scope,
+        freshness=freshness,
         min_score=min_score,
     )

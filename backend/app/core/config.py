@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     source_circuit_breaker_threshold: int = 3
     source_circuit_breaker_cooldown_minutes: int = 30
     resume_max_bytes: int = 2_000_000
+    refresh_source_concurrency: int = Field(default=3, ge=1, le=8)
 
 
 @lru_cache

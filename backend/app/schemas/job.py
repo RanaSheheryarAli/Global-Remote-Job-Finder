@@ -7,6 +7,7 @@ from pydantic import BaseModel
 FreshnessGrade = Literal["A", "B", "C", "D"]
 RemoteMode = Literal["remote", "hybrid", "onsite", "unknown"]
 PakistanEligibility = Literal["yes", "no", "unknown"]
+GeographicScope = Literal["worldwide", "country_list", "region", "single_country", "unknown"]
 
 
 class JobRead(BaseModel):
@@ -39,6 +40,20 @@ class JobRead(BaseModel):
     pakistan_eligibility: PakistanEligibility
     eligibility_positive_evidence: list[str]
     eligibility_negative_evidence: list[str]
+    geographic_scope: GeographicScope
+    allowed_country_codes: list[str]
+    excluded_country_codes: list[str]
+    allowed_regions: list[str]
+    residency_required: bool
+    work_authorization_required: bool
+    timezone_constraints: list[str]
+    global_remote: bool
+    eligibility_confidence: Literal["high", "medium", "low"]
+    geographic_positive_evidence: list[str]
+    geographic_restrictive_evidence: list[str]
+    geographic_conflicting_evidence: list[str]
+    discovered_refresh_run_id: UUID | None
+    updated_refresh_run_id: UUID | None
     employer_headquarters_gcc: bool
     job_location_gcc: bool | None
     is_active: bool
@@ -65,4 +80,5 @@ class JobTrustSummary(BaseModel):
     strict_today: int
     pakistan_yes: int
     pakistan_unknown: int
+    worldwide: int
     freshness: dict[str, int]

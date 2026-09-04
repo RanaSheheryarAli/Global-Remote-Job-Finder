@@ -6,6 +6,7 @@ import pytest
 
 from app.ingestion.contracts import NormalizedJob, SourceJobSummary
 from app.ingestion.service import IngestionFailed, IngestionService
+from app.trust.engine import TRUST_VERSION
 
 
 class FakeAdapter:
@@ -61,7 +62,7 @@ class FakeRepository:
         posting.current_content_hash = job.content_hash
         posting.source_updated_at = job.source_updated_at
         posting.is_active = True
-        posting.trust_version = 1
+        posting.trust_version = TRUST_VERSION
 
     async def touch_posting(self, posting):
         posting.is_active = True
@@ -125,7 +126,7 @@ async def test_unchanged_job_skips_detail_fetch() -> None:
         source_updated_at=summary.source_updated_at,
         current_content_hash="a" * 64,
         is_active=True,
-        trust_version=1,
+        trust_version=TRUST_VERSION,
     )
     adapter = FakeAdapter([summary], {"101": make_job()})
     repository = FakeRepository(existing={"101": existing})
@@ -152,7 +153,7 @@ async def test_missing_update_timestamp_forces_detail_check() -> None:
         source_updated_at=None,
         current_content_hash="a" * 64,
         is_active=True,
-        trust_version=1,
+        trust_version=TRUST_VERSION,
     )
     adapter = FakeAdapter([summary], {"101": make_job()})
     repository = FakeRepository(existing={"101": existing})
@@ -185,7 +186,7 @@ async def test_unchanged_job_is_enriched_when_trust_version_is_old() -> None:
     assert report.unchanged_count == 1
     assert adapter.detail_calls == 1
     assert repository.updates == 1
-    assert existing.trust_version == 1
+    assert existing.trust_version == TRUST_VERSION
     assert repository.snapshots == []
 
 
@@ -198,7 +199,7 @@ async def test_changed_job_gets_new_snapshot() -> None:
         source_updated_at=datetime(2026, 9, 3, 8, 30, tzinfo=UTC),
         current_content_hash="a" * 64,
         is_active=True,
-        trust_version=1,
+        trust_version=TRUST_VERSION,
     )
     adapter = FakeAdapter([summary], {"101": make_job(content_hash="b" * 64)})
     repository = FakeRepository(existing={"101": existing})

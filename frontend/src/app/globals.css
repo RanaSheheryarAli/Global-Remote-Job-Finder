@@ -240,6 +240,22 @@ h1 {
 .scoreTrack span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 .matchSkills { border-radius: 11px; padding: 13px 15px; background: var(--wash); }
 .matchSkills p { margin: 4px 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.badgeRow .globalBadge { background: #e7f2ff; color: #18558d; }
+.refreshPanel { margin: 28px 0 22px; border: 1px solid var(--line); border-radius: 18px; padding: 24px; background: linear-gradient(145deg, #fff, var(--wash)); }
+.refreshTop { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.refreshTop h2 { margin: 0 0 8px; font-size: 25px; }
+.refreshTop > div > p:last-child { margin: 0; max-width: 720px; color: var(--muted); line-height: 1.5; }
+.refreshTop button { flex: none; border: 0; border-radius: 10px; padding: 12px 17px; background: var(--accent); color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.refreshTop button:disabled { cursor: wait; opacity: .6; }
+.refreshStatus { margin-top: 20px; }
+.refreshStatusLine { display: flex; justify-content: space-between; gap: 18px; margin-bottom: 8px; font-size: 13px; }
+.refreshStatusLine span { color: var(--muted); }
+.refreshTrack { height: 7px; overflow: hidden; border-radius: 999px; background: #e1e8ef; }
+.refreshTrack span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .25s ease; }
+.refreshMetrics { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; }
+.refreshMetrics span { border-radius: 9px; padding: 8px 10px; background: #fff; color: var(--muted); font-size: 12px; }
+.refreshMetrics strong { color: var(--ink); }
+.refreshWarning { margin: 12px 0 0; border-radius: 9px; padding: 10px 12px; background: var(--amber-wash); color: var(--amber); font-size: 13px; }
 
 @media (max-width: 800px) {
   main { padding-top: 42px; }
@@ -254,4 +270,5 @@ h1 {
   .privacyStamp { min-width: 0; }
   .profileGrid, .skillsGrid, .scoreGrid { grid-template-columns: 1fr; }
   .scoreBadge { justify-items: start; }
+  .refreshTop, .refreshStatusLine { align-items: flex-start; flex-direction: column; }
 }

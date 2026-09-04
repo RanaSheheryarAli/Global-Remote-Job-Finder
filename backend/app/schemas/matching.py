@@ -50,6 +50,8 @@ class MatchListRead(BaseModel):
     page: int
     page_size: int
     include_uncertain: bool
+    scope: str
+    freshness: str | None
     min_score: int
 
 

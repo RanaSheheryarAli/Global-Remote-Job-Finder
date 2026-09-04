@@ -1,3 +1,5 @@
+import RefreshControl from "./refresh-control";
+
 type Match = {
   id: string;
   profile_version: number;
@@ -24,6 +26,11 @@ type Match = {
     freshness_label: string;
     published_local_date: string | null;
     pakistan_eligibility: string;
+    geographic_scope: string;
+    global_remote: boolean;
+    eligibility_confidence: string;
+    geographic_positive_evidence: string[];
+    geographic_restrictive_evidence: string[];
     employer_headquarters_gcc: boolean;
   };
 };
@@ -32,8 +39,12 @@ type MatchList = {
   items: Match[];
   total: number;
   include_uncertain: boolean;
+  scope: string;
+  freshness: string | null;
   min_score: number;
 };
+
+type LatestRefresh = { id: string; status: string };
 
 const componentWeights: Record<string, number> = {
   required_core_skills: 35,
@@ -48,11 +59,15 @@ function humanize(value: string): string {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-async function getMatches(includeUncertain: boolean): Promise<MatchList | null> {
+async function getMatches(
+  scope: string,
+  freshness?: string,
+  refreshRunId?: string,
+): Promise<MatchList | null> {
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? "http://localhost:8000";
   try {
     const response = await fetch(
-      `${baseUrl}/api/v1/matches?include_uncertain=${includeUncertain}`,
+      `${baseUrl}/api/v1/matches?scope=${scope}${freshness ? `&freshness=${freshness}` : ""}${refreshRunId ? `&refresh_run_id=${refreshRunId}` : ""}`,
       { cache: "no-store" },
     );
     return response.ok ? ((await response.json()) as MatchList) : null;
@@ -61,18 +76,38 @@ async function getMatches(includeUncertain: boolean): Promise<MatchList | null> 
   }
 }
 
+async function getLatestRefresh(): Promise<LatestRefresh | null> {
+  const baseUrl = process.env.INTERNAL_API_BASE_URL ?? "http://localhost:8000";
+  try {
+    const response = await fetch(`${baseUrl}/api/v1/refresh-runs/latest`, { cache: "no-store" });
+    return response.ok ? ((await response.json()) as LatestRefresh) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function MatchesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ eligibility?: string }>;
+    searchParams: Promise<{ scope?: string; freshness?: string; refresh_run_id?: string }>;
 }) {
-  const includeUncertain = (await searchParams).eligibility === "uncertain";
-  const matches = await getMatches(includeUncertain);
+  const params = await searchParams;
+  const scope = ["pakistan", "worldwide", "unclear"].includes(params.scope ?? "")
+    ? (params.scope as string)
+    : "pakistan";
+  const freshness = ["verified_today", "newly_discovered"].includes(params.freshness ?? "")
+    ? params.freshness
+    : undefined;
+  const latestRefresh = await getLatestRefresh();
+  const refreshRunId = freshness === "newly_discovered"
+    ? (params.refresh_run_id ?? latestRefresh?.id)
+    : undefined;
+  const matches = await getMatches(scope, freshness, refreshRunId);
   return (
     <main>
       <header className="adminHeader jobsHeader">
         <div>
-          <p className="eyebrow">PHASE 5 · REPRODUCIBLE RANKING</p>
+          <p className="eyebrow">PHASE 6 · DAILY GLOBAL DISCOVERY</p>
           <h1>Ranked matches</h1>
           <p className="lead jobsLead">
             Hard gates run first. Every visible score is a transparent 100-point calculation.
@@ -81,17 +116,27 @@ export default async function MatchesPage({
         <nav className="headerNav"><a href="/profile">Candidate profile</a><a href="/jobs">Trusted jobs</a></nav>
       </header>
 
+      <RefreshControl />
+
       {!matches ? (
         <section className="emptyState"><h2>Matches are not ready</h2><p>Create a profile and rebuild matches.</p></section>
       ) : (
         <>
           <nav className="filterBar" aria-label="Eligibility filter">
-            <a className={!includeUncertain ? "filterActive" : ""} href="/matches">Strictly eligible</a>
-            <a className={includeUncertain ? "filterActive" : ""} href="/matches?eligibility=uncertain">Include unclear</a>
+            <a className={scope === "pakistan" && !freshness ? "filterActive" : ""} href="/matches">Pakistan eligible</a>
+            <a className={scope === "worldwide" ? "filterActive" : ""} href="/matches?scope=worldwide">Worldwide only</a>
+            <a className={scope === "unclear" ? "filterActive" : ""} href="/matches?scope=unclear">Eligibility unclear</a>
+            <a className={freshness === "verified_today" ? "filterActive" : ""} href={`/matches?scope=${scope}&freshness=verified_today`}>Verified today</a>
+            {latestRefresh && (
+              <a
+                className={freshness === "newly_discovered" ? "filterActive" : ""}
+                href={`/matches?scope=${scope}&freshness=newly_discovered&refresh_run_id=${latestRefresh.id}`}
+              >New this refresh</a>
+            )}
           </nav>
           <div className="feedMeta">
             <strong>{matches.total} match{matches.total === 1 ? "" : "es"} scoring {matches.min_score}+</strong>
-            <span>{includeUncertain ? "Pakistan Yes + Unknown" : "Pakistan eligibility Yes only"}</span>
+            <span>{scope === "worldwide" ? "Explicitly worldwide" : scope === "unclear" ? "Manual review required" : "Pakistan explicitly eligible"}</span>
           </div>
           {matches.items.length === 0 ? (
             <section className="emptyState"><h2>No visible matches</h2><p>Hard gates or the minimum score removed the current jobs.</p></section>
@@ -110,11 +155,19 @@ export default async function MatchesPage({
                     <span className={`eligibility eligibility${match.job.pakistan_eligibility}`}>
                       Pakistan: {match.job.pakistan_eligibility}
                     </span>
+                    <span>{humanize(match.job.geographic_scope)}</span>
+                    {match.job.global_remote && <span className="globalBadge">Worldwide</span>}
                     <span>Freshness {match.job.freshness_grade}</span>
                     {match.job.employer_headquarters_gcc && <span>Gulf employer</span>}
                   </div>
                   <p className="jobLocation">{match.job.location_text ?? "Location not stated"}</p>
                   {match.evidence.explanation && <p className="matchExplanation">{match.evidence.explanation}</p>}
+                  {(match.job.geographic_positive_evidence[0] || match.job.geographic_restrictive_evidence[0]) && (
+                    <div className="evidence">
+                      <strong>Location evidence · {match.job.eligibility_confidence} confidence</strong>
+                      <p>{match.job.geographic_positive_evidence[0] ?? match.job.geographic_restrictive_evidence[0]}</p>
+                    </div>
+                  )}
                   {match.gate_reasons.length > 0 && (
                     <p className="uncertaintyNote">{match.gate_reasons.join(" · ")}</p>
                   )}
@@ -146,4 +199,3 @@ export default async function MatchesPage({
     </main>
   );
 }
-
