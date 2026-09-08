@@ -72,6 +72,13 @@ class JobListRead(BaseModel):
     timezone: str = "Asia/Karachi"
 
 
+class JobCleanupRead(BaseModel):
+    cutoff: datetime
+    retention_hours: int
+    deleted_jobs: int
+    deleted_rejections: int
+
+
 class JobTrustSummary(BaseModel):
     local_date: date
     timezone: str = "Asia/Karachi"

@@ -157,3 +157,6 @@ Pakistan eligibility require separate positive evidence with restrictions taking
 
 The latest completed-phase verification is recorded in
 [`docs/test-report-phase6-2026-09-04.md`](docs/test-report-phase6-2026-09-04.md).
+
+The All jobs screen also provides a confirmed 24-hour retention cleanup. It permanently removes
+older job postings, their snapshots and matches, plus expired rejection-ledger entries.

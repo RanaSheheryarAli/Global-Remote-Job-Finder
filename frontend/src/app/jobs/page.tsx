@@ -1,3 +1,6 @@
+import CleanupControl from "./cleanup-control";
+import Pagination from "../pagination";
+
 type Job = {
   id: string;
   source_name: string;
@@ -119,6 +122,7 @@ export default async function JobsPage({
             Freshness, remote mode, Pakistan eligibility and Gulf context are kept separate.
           </p>
         </div>
+        <CleanupControl />
       </header>
 
       {!jobs || !summary ? (
@@ -224,4 +228,3 @@ export default async function JobsPage({
     </main>
   );
 }
-import Pagination from "../pagination";

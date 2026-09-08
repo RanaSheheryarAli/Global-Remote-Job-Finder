@@ -219,6 +219,13 @@ h1 {
 
 .jobsHeader { align-items: flex-start; }
 .jobsLead { margin-bottom: 0; max-width: 690px; font-size: 17px; }
+.cleanupControl { display: grid; justify-items: end; gap: 8px; }
+.cleanupControl button { border: 1px solid #c53b32; border-radius: 10px; padding: 11px 14px; background: #fff; color: #a52e27; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.cleanupControl button:hover { background: #fff0ef; }
+.cleanupControl button:disabled { cursor: wait; opacity: .6; }
+.cleanupControl span { max-width: 280px; font-size: 12px; text-align: right; }
+.cleanupSuccess { color: var(--green); }
+.cleanupError { color: #a52e27; }
 .trustMetrics { grid-template-columns: repeat(4, 1fr); }
 .filterBar { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 24px; }
 .filterBar a {
@@ -329,6 +336,9 @@ h1 {
   .metricGrid { grid-template-columns: repeat(2, 1fr); }
   .tableWrap { overflow-x: auto; }
   .jobCardTop, .jobFooter, .feedMeta, .pagination { align-items: flex-start; flex-direction: column; }
+  .jobsHeader { flex-direction: column; }
+  .cleanupControl { justify-items: start; }
+  .cleanupControl span { text-align: left; }
   .paginationLinks { justify-content: flex-start; }
   .profileHero { flex-direction: column; }
   .privacyStamp { min-width: 0; }

@@ -40,6 +40,15 @@ Provider polling limits are enforced for Himalayas (24 hours), Jobicy (1 hour), 
 Source and daily refresh runs now expose `rejected_count`. The Matches refresh card displays how
 many irrelevant listings were filtered before matching.
 
+### 5. Retention cleanup
+
+The **All jobs** screen includes a confirmed cleanup action that permanently removes listings
+older than 24 hours. Age uses the source publication timestamp when available and falls back to
+the first-seen timestamp. Related match rows and snapshots are removed by database cascades;
+expired rejection-ledger rows are cleaned at the same time. Surviving duplicate families retain a
+canonical job. The API requires an explicit confirmation token and never permits a retention
+window shorter than 24 hours.
+
 ## Deployment
 
 1. Deploy the backend. The existing Render start command must run `alembic upgrade head` before

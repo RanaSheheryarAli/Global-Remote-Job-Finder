@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -7,10 +8,12 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
+from app.jobs.cleanup import delete_expired_jobs
 from app.models.job_posting import JobPosting
 from app.models.source_registry import SourceRegistry
 from app.schemas.job import (
     FreshnessGrade,
+    JobCleanupRead,
     JobDetailRead,
     JobListRead,
     JobRead,
@@ -178,6 +181,22 @@ async def list_jobs(
         page=page,
         page_size=page_size,
         strict_today=strict_today,
+    )
+
+
+@router.delete("/cleanup", response_model=JobCleanupRead)
+async def cleanup_old_jobs(
+    confirm: Literal["delete-old-jobs"] = Query(),
+    older_than_hours: int = Query(default=24, ge=24, le=720),
+    session: AsyncSession = Depends(get_session),
+) -> JobCleanupRead:
+    result = await delete_expired_jobs(session, hours=older_than_hours)
+    await session.commit()
+    return JobCleanupRead(
+        cutoff=result.cutoff,
+        retention_hours=older_than_hours,
+        deleted_jobs=result.deleted_jobs,
+        deleted_rejections=result.deleted_rejections,
     )
 
 
