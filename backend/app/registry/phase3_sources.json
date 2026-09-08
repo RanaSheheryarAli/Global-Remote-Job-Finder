@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-03",
+  "version": "2026-09-08",
   "company_source_count": 25,
   "sources": [
     {"name":"GitLab","source_type":"greenhouse","board_token":"gitlab","company_domain":"gitlab.com","career_url":"https://job-boards.greenhouse.io/gitlab","provider_region":"global","headquarters_country":"US","is_gcc":false,"is_aggregator":false,"requires_attribution":false},
@@ -27,6 +27,10 @@
     {"name":"JumpCloud","source_type":"lever","board_token":"jumpcloud","company_domain":"jumpcloud.com","career_url":"https://jobs.lever.co/jumpcloud","provider_region":"global","headquarters_country":"US","is_gcc":false,"is_aggregator":false,"requires_attribution":false},
     {"name":"Getty Images","source_type":"lever","board_token":"gettyimages","company_domain":"gettyimages.com","career_url":"https://jobs.lever.co/gettyimages","provider_region":"global","headquarters_country":"US","is_gcc":false,"is_aggregator":false,"requires_attribution":false},
     {"name":"Corbalt","source_type":"lever","board_token":"corbalt","company_domain":"corbalt.com","career_url":"https://jobs.lever.co/corbalt","provider_region":"global","headquarters_country":"US","is_gcc":false,"is_aggregator":false,"requires_attribution":false},
-    {"name":"Remote OK","source_type":"remoteok","board_token":"remoteok","company_domain":"remoteok.com","career_url":"https://remoteok.com/","provider_region":"global","headquarters_country":null,"is_gcc":false,"is_aggregator":true,"requires_attribution":true,"attribution_name":"Remote OK","attribution_url":"https://remoteok.com/"}
+    {"name":"Remote OK","source_type":"remoteok","board_token":"remoteok","company_domain":"remoteok.com","career_url":"https://remoteok.com/","provider_region":"global","headquarters_country":null,"is_gcc":false,"is_aggregator":true,"requires_attribution":true,"attribution_name":"Remote OK","attribution_url":"https://remoteok.com/"},
+    {"name":"Himalayas","source_type":"himalayas","board_token":"himalayas","company_domain":"himalayas.app","career_url":"https://himalayas.app/jobs","provider_region":"global","headquarters_country":null,"is_gcc":false,"is_aggregator":true,"requires_attribution":true,"attribution_name":"Himalayas","attribution_url":"https://himalayas.app/jobs"},
+    {"name":"Jobicy","source_type":"jobicy","board_token":"jobicy","company_domain":"jobicy.com","career_url":"https://jobicy.com/remote-jobs","provider_region":"global","headquarters_country":null,"is_gcc":false,"is_aggregator":true,"requires_attribution":true,"attribution_name":"Jobicy","attribution_url":"https://jobicy.com/remote-jobs"},
+    {"name":"Remotive","source_type":"remotive","board_token":"remotive","company_domain":"remotive.com","career_url":"https://remotive.com/remote-jobs","provider_region":"global","headquarters_country":null,"is_gcc":false,"is_aggregator":true,"requires_attribution":true,"attribution_name":"Remotive","attribution_url":"https://remotive.com/remote-jobs"},
+    {"name":"We Work Remotely","source_type":"wwr","board_token":"wwr-programming","company_domain":"weworkremotely.com","career_url":"https://weworkremotely.com/categories/remote-programming-jobs","provider_region":"global","headquarters_country":null,"is_gcc":false,"is_aggregator":true,"requires_attribution":true,"attribution_name":"We Work Remotely","attribution_url":"https://weworkremotely.com/remote-jobs.rss"}
   ]
 }

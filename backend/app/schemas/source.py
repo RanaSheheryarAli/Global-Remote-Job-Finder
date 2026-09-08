@@ -5,7 +5,16 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
-SourceType = Literal["greenhouse", "lever", "ashby", "remoteok"]
+SourceType = Literal[
+    "greenhouse",
+    "lever",
+    "ashby",
+    "remoteok",
+    "himalayas",
+    "jobicy",
+    "remotive",
+    "wwr",
+]
 ProviderRegion = Literal["global", "eu"]
 DOMAIN_RE = re.compile(r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$")
 
@@ -51,15 +60,25 @@ class SourceCreate(BaseModel):
     def validate_provider_rules(self) -> "SourceCreate":
         if self.source_type != "lever" and self.provider_region != "global":
             raise ValueError("Only Lever sources may select the EU provider region")
-        if self.source_type == "remoteok":
-            if self.board_token != "remoteok" or not self.is_aggregator:
-                raise ValueError("Remote OK must use identifier 'remoteok' as an aggregator")
+        aggregator_rules = {
+            "remoteok": ("remoteok", "Remote OK"),
+            "himalayas": ("himalayas", "Himalayas"),
+            "jobicy": ("jobicy", "Jobicy"),
+            "remotive": ("remotive", "Remotive"),
+            "wwr": ("wwr-programming", "We Work Remotely"),
+        }
+        if self.source_type in aggregator_rules:
+            expected_token, expected_name = aggregator_rules[self.source_type]
+            if self.board_token != expected_token or not self.is_aggregator:
+                raise ValueError(
+                    f"{expected_name} must use identifier {expected_token!r} as an aggregator"
+                )
             if not self.requires_attribution:
-                raise ValueError("Remote OK requires visible attribution and a followed link back")
-            if self.attribution_name != "Remote OK" or self.attribution_url is None:
-                raise ValueError("Remote OK attribution name and URL are required")
+                raise ValueError(f"{expected_name} requires visible attribution")
+            if self.attribution_name != expected_name or self.attribution_url is None:
+                raise ValueError(f"{expected_name} attribution name and URL are required")
         elif self.is_aggregator:
-            raise ValueError("Only the Remote OK source may be marked as an aggregator")
+            raise ValueError("Only supported public job feeds may be marked as aggregators")
         return self
 
 
@@ -102,6 +121,7 @@ class IngestionReportRead(BaseModel):
     changed_count: int
     unchanged_count: int
     deactivated_count: int
+    rejected_count: int
 
 
 class SourceValidationRead(BaseModel):

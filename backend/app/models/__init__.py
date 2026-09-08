@@ -1,6 +1,7 @@
 from app.models.candidate_profile import CandidateProfile
 from app.models.job_match import JobMatch
 from app.models.job_posting import JobPosting
+from app.models.job_rejection import JobRejection
 from app.models.job_snapshot import JobSnapshot
 from app.models.refresh_run import RefreshRun
 from app.models.source_registry import SourceRegistry
@@ -10,6 +11,7 @@ __all__ = [
     "CandidateProfile",
     "JobMatch",
     "JobPosting",
+    "JobRejection",
     "JobSnapshot",
     "RefreshRun",
     "SourceRegistry",

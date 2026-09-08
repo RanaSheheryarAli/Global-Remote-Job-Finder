@@ -129,6 +129,7 @@ class JobPosting(UUIDPrimaryKeyMixin, Base):
     )
     is_canonical: Mapped[bool] = mapped_column(Boolean, default=True)
     trust_version: Mapped[int] = mapped_column(Integer, default=0)
+    relevance_version: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     current_content_hash: Mapped[str] = mapped_column(String(64))
 

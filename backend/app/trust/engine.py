@@ -324,7 +324,7 @@ def _freshness(
     republished = bool(published_at and prior_published_at and published_at > prior_published_at)
     if published_at and source_type in {"greenhouse", "ashby"}:
         grade, label = "A", "Verified publication time"
-    elif published_at and source_type == "remoteok":
+    elif published_at and source_type in {"remoteok", "himalayas", "jobicy", "remotive", "wwr"}:
         grade, label = "B", "Feed-verified publication time"
     elif source_type == "lever":
         grade, label = "C", "Newly discovered; publication time unavailable"
@@ -342,17 +342,17 @@ def _remote_mode(job: NormalizedJob) -> str:
     workplace = (job.workplace_type or "").casefold()
     location = clean_text(job.location_text).casefold()
     combined = f"{location} {job.description_text}".casefold()
-    if "hybrid" in workplace or location == "hybrid" or re.search(
-        r"\bhybrid (?:role|work|position)\b", combined
+    if (
+        "hybrid" in workplace
+        or location == "hybrid"
+        or re.search(r"\bhybrid (?:role|work|position)\b", combined)
     ):
         return "hybrid"
     if (
         workplace in {"on-site", "onsite", "office"}
         or location in {"in-office", "office", "office based", "onsite", "on-site"}
         or location.startswith("office based")
-        or re.search(
-        r"\b(?:on-site|onsite) (?:role|work|position)\b", combined
-        )
+        or re.search(r"\b(?:on-site|onsite) (?:role|work|position)\b", combined)
     ):
         return "onsite"
     if "remote" in workplace or "remote" in (job.location_text or "").casefold():

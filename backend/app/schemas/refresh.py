@@ -23,6 +23,7 @@ class RefreshRunRead(BaseModel):
     changed_count: int
     unchanged_count: int
     deactivated_count: int
+    rejected_count: int
     verified_today_count: int
     worldwide_count: int
     pakistan_eligible_count: int

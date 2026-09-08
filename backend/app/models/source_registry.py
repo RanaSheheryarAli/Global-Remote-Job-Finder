@@ -17,7 +17,8 @@ class SourceRegistry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("source_type", "board_token", name="uq_source_type_board_token"),
         CheckConstraint(
-            "source_type IN ('greenhouse', 'lever', 'ashby', 'remoteok')",
+            "source_type IN ('greenhouse', 'lever', 'ashby', 'remoteok', 'himalayas', "
+            "'jobicy', 'remotive', 'wwr')",
             name="ck_source_registry_source_type",
         ),
         CheckConstraint(

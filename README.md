@@ -10,9 +10,12 @@ A private, API-first application that discovers remote jobs, preserves source ev
 - **Phase 4 - Trust layer:** normalized fields, Asia/Karachi freshness grades, separate remote-mode and Pakistan-eligibility classifiers with evidence, distinct Gulf employer/location facts, cross-source canonical deduplication, repost detection, closure history, trusted-job APIs, and a filterable frontend feed.
 - **Phase 5 - Resume profile and matching:** privacy-minimized PDF parsing, immutable profile versions, a technology synonym ontology, role/seniority/domain extraction, hard eligibility gates, deterministic 100-point scoring, matched/missing skills, evidence, ranked-match APIs, and profile/match screens.
 - **Phase 6 - Daily refresh and global matching:** one-click all-source refresh, durable progress and partial-failure reporting, automatic match rebuilding, explicit worldwide/country/region scope, Pakistan eligibility v2, provider country evidence, and worldwide/Pakistan/unclear match filters.
+- **Phase 7 - Relevant-job ingestion and public feeds:** title/description relevance filtering before database persistence, an auditable rejection ledger, rejected-job metrics, and no-key Himalayas, Jobicy, Remotive, and We Work Remotely adapters with provider-aware polling limits.
 
 The Phase 6 design and acceptance criteria are recorded in
 [`docs/phase6-daily-refresh-global-matching-plan.md`](docs/phase6-daily-refresh-global-matching-plan.md).
+Phase 7 implementation and deployment notes are in
+[`docs/phase7-relevance-and-public-feeds.md`](docs/phase7-relevance-and-public-feeds.md).
 The application workflow dashboard, persistent job actions, notifications, and private-launch
 operations remain deferred to later phases.
 
@@ -98,7 +101,8 @@ Then run ingestion with the returned source ID:
 curl -X POST http://localhost:8000/api/v1/sources/SOURCE_ID/ingest
 ```
 
-Supported `source_type` values are `greenhouse`, `lever`, `ashby`, and `remoteok`.
+Supported `source_type` values are `greenhouse`, `lever`, `ashby`, `remoteok`, `himalayas`,
+`jobicy`, `remotive`, and `wwr`.
 Public job reads do not require an applicant-owned API key. This project never requests or
 stores an employer application key.
 
@@ -110,7 +114,7 @@ The validator uses Node's built-in `fetch`, so it needs no npm installation:
 node scripts/validate_phase3_sources.mjs
 ```
 
-Remote OK records retain visible source attribution and link back to the Remote OK listing.
+All aggregator records retain visible source attribution and link back to their original listing.
 
 ## Trusted jobs API
 

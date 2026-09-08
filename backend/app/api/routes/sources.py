@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db.session import get_session
 from app.ingestion.factory import build_source_adapter
+from app.ingestion.rate_limits import retry_after_seconds
 from app.ingestion.repository import SqlAlchemyIngestionRepository
 from app.ingestion.service import IngestionFailed, IngestionService
 from app.ingestion.source_health import mark_source_failure, mark_source_success
@@ -177,6 +178,13 @@ async def ingest_source(
             status_code=429,
             detail=f"Source circuit is open until {source.circuit_open_until.isoformat()}",
         )
+    retry_after = retry_after_seconds(source)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Source refresh is rate-limited; retry in {retry_after} seconds",
+            headers={"Retry-After": str(retry_after)},
+        )
 
     settings = get_settings()
     adapter = build_source_adapter(source, settings)
@@ -215,4 +223,5 @@ async def ingest_source(
         changed_count=report.changed_count,
         unchanged_count=report.unchanged_count,
         deactivated_count=report.deactivated_count,
+        rejected_count=report.rejected_count,
     )

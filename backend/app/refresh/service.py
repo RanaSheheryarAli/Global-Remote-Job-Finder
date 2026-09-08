@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.ingestion.factory import build_source_adapter
+from app.ingestion.rate_limits import retry_after_seconds
 from app.ingestion.repository import SqlAlchemyIngestionRepository
 from app.ingestion.service import IngestionFailed, IngestionService
 from app.ingestion.source_health import mark_source_failure
@@ -38,6 +39,7 @@ class SourceRefreshResult:
     changed_count: int = 0
     unchanged_count: int = 0
     deactivated_count: int = 0
+    rejected_count: int = 0
     error: str | None = None
 
 
@@ -72,6 +74,15 @@ class DailyRefreshService:
                     "skipped",
                     error=f"Circuit open until {source.circuit_open_until.isoformat()}",
                 )
+            retry_after = retry_after_seconds(source)
+            if retry_after is not None:
+                logger.info(
+                    "refresh_source_rate_limited refresh_run_id=%s source=%s retry_after=%s",
+                    self.refresh_run_id,
+                    source.name,
+                    retry_after,
+                )
+                return SourceRefreshResult(source.id, source.name, "skipped")
 
             adapter = build_source_adapter(source, self.settings)
             logger.info(
@@ -108,6 +119,7 @@ class DailyRefreshService:
                     changed_count=report.changed_count,
                     unchanged_count=report.unchanged_count,
                     deactivated_count=report.deactivated_count,
+                    rejected_count=report.rejected_count,
                 )
             except (IngestionFailed, TimeoutError) as exc:
                 await session.rollback()
@@ -167,6 +179,7 @@ class DailyRefreshService:
             run.changed_count += result.changed_count
             run.unchanged_count += result.unchanged_count
             run.deactivated_count += result.deactivated_count
+            run.rejected_count += result.rejected_count
             if result.error:
                 run.failures = [
                     *run.failures,

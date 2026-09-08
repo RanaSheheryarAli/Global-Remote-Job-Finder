@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
@@ -6,6 +7,7 @@ import pytest
 
 from app.ingestion.contracts import NormalizedJob, SourceJobSummary
 from app.ingestion.service import IngestionFailed, IngestionService
+from app.relevance.engine import RELEVANCE_VERSION
 from app.trust.engine import TRUST_VERSION
 
 
@@ -34,6 +36,7 @@ class FailingAdapter:
 class FakeRepository:
     def __init__(self, existing=None, deactivated=0):
         self.existing = existing or {}
+        self.rejections = {}
         self.deactivated = deactivated
         self.snapshots = []
         self.updates = 0
@@ -46,6 +49,26 @@ class FakeRepository:
     async def find_posting(self, source_id, source_job_id):
         return self.existing.get(source_job_id)
 
+    async def find_rejection(self, source_id, source_job_id):
+        return self.rejections.get(source_job_id)
+
+    async def touch_rejection(self, rejection):
+        rejection.touched = True
+
+    async def record_rejection(self, source, summary, decision, *, content_hash=None):
+        self.rejections[summary.source_job_id] = SimpleNamespace(
+            source_updated_at=summary.source_updated_at,
+            relevance_version=RELEVANCE_VERSION,
+            reason=decision.reason,
+            content_hash=content_hash,
+        )
+
+    async def clear_rejection(self, source_id, source_job_id):
+        self.rejections.pop(source_job_id, None)
+
+    async def deactivate_rejected_posting(self, posting):
+        posting.is_active = False
+
     async def save_new_posting(self, source, job):
         posting = SimpleNamespace(
             id=uuid4(),
@@ -53,6 +76,7 @@ class FakeRepository:
             source_updated_at=job.source_updated_at,
             current_content_hash=job.content_hash,
             is_active=True,
+            relevance_version=RELEVANCE_VERSION,
         )
         self.existing[job.source_job_id] = posting
         return posting
@@ -63,6 +87,7 @@ class FakeRepository:
         posting.source_updated_at = job.source_updated_at
         posting.is_active = True
         posting.trust_version = TRUST_VERSION
+        posting.relevance_version = RELEVANCE_VERSION
 
     async def touch_posting(self, posting):
         posting.is_active = True
@@ -83,7 +108,14 @@ class FakeRepository:
 
 def make_summary(job_id="101"):
     updated = datetime(2026, 9, 3, 9, 30, tzinfo=UTC)
-    return SourceJobSummary(job_id, "Engineer", "Remote", "https://example/jobs/101", updated, {})
+    return SourceJobSummary(
+        job_id,
+        "Software Engineer",
+        "Remote",
+        "https://example/jobs/101",
+        updated,
+        {},
+    )
 
 
 def make_job(job_id="101", content_hash="a" * 64):
@@ -91,7 +123,7 @@ def make_job(job_id="101", content_hash="a" * 64):
     return NormalizedJob(
         source_job_id=job_id,
         employer_name="Example Company",
-        title="Engineer",
+        title="Software Engineer",
         location_text="Remote",
         description_html="<p>Role</p>",
         description_text="Role",
@@ -127,6 +159,7 @@ async def test_unchanged_job_skips_detail_fetch() -> None:
         current_content_hash="a" * 64,
         is_active=True,
         trust_version=TRUST_VERSION,
+        relevance_version=RELEVANCE_VERSION,
     )
     adapter = FakeAdapter([summary], {"101": make_job()})
     repository = FakeRepository(existing={"101": existing})
@@ -142,7 +175,7 @@ async def test_missing_update_timestamp_forces_detail_check() -> None:
     source = SimpleNamespace(id=uuid4())
     summary = SourceJobSummary(
         "101",
-        "Engineer",
+        "Software Engineer",
         "Remote",
         "https://example/jobs/101",
         None,
@@ -154,6 +187,7 @@ async def test_missing_update_timestamp_forces_detail_check() -> None:
         current_content_hash="a" * 64,
         is_active=True,
         trust_version=TRUST_VERSION,
+        relevance_version=RELEVANCE_VERSION,
     )
     adapter = FakeAdapter([summary], {"101": make_job()})
     repository = FakeRepository(existing={"101": existing})
@@ -173,6 +207,7 @@ async def test_unchanged_job_is_enriched_when_trust_version_is_old() -> None:
         current_content_hash="a" * 64,
         is_active=True,
         trust_version=0,
+        relevance_version=RELEVANCE_VERSION,
     )
     adapter = FakeAdapter([summary], {"101": make_job()})
     repository = FakeRepository(existing={"101": existing})
@@ -200,6 +235,7 @@ async def test_changed_job_gets_new_snapshot() -> None:
         current_content_hash="a" * 64,
         is_active=True,
         trust_version=TRUST_VERSION,
+        relevance_version=RELEVANCE_VERSION,
     )
     adapter = FakeAdapter([summary], {"101": make_job(content_hash="b" * 64)})
     repository = FakeRepository(existing={"101": existing})
@@ -223,3 +259,69 @@ async def test_failed_source_marks_run_failed() -> None:
         ).run()
 
     assert repository.run.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_irrelevant_title_is_rejected_before_detail_fetch() -> None:
+    source = SimpleNamespace(id=uuid4())
+    summary = SourceJobSummary(
+        "sales-1",
+        "Senior Territory Account Executive - Beijing",
+        "China",
+        "https://example/jobs/sales-1",
+        datetime(2026, 9, 3, 9, 30, tzinfo=UTC),
+        {},
+    )
+    adapter = FakeAdapter([summary], {})
+    repository = FakeRepository()
+
+    report = await IngestionService(source=source, adapter=adapter, repository=repository).run()
+
+    assert report.rejected_count == 1
+    assert report.new_count == 0
+    assert adapter.detail_calls == 0
+    assert "sales-1" in repository.rejections
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_title_is_rejected_after_description_review() -> None:
+    source = SimpleNamespace(id=uuid4())
+    summary = SourceJobSummary(
+        "ops-1",
+        "Associate",
+        "Remote",
+        "https://example/jobs/ops-1",
+        datetime(2026, 9, 3, 9, 30, tzinfo=UTC),
+        {},
+    )
+    job = replace(make_job("ops-1"), title="Associate")
+    adapter = FakeAdapter([summary], {"ops-1": job})
+    repository = FakeRepository()
+
+    report = await IngestionService(source=source, adapter=adapter, repository=repository).run()
+
+    assert report.rejected_count == 1
+    assert adapter.detail_calls == 1
+    assert repository.snapshots == []
+
+
+@pytest.mark.asyncio
+async def test_old_relevance_version_forces_existing_job_recheck() -> None:
+    source = SimpleNamespace(id=uuid4())
+    summary = make_summary()
+    existing = SimpleNamespace(
+        id=uuid4(),
+        source_updated_at=summary.source_updated_at,
+        current_content_hash="a" * 64,
+        is_active=True,
+        trust_version=TRUST_VERSION,
+        relevance_version=0,
+    )
+    adapter = FakeAdapter([summary], {"101": make_job()})
+    repository = FakeRepository(existing={"101": existing})
+
+    report = await IngestionService(source=source, adapter=adapter, repository=repository).run()
+
+    assert report.unchanged_count == 1
+    assert adapter.detail_calls == 1
+    assert existing.relevance_version == RELEVANCE_VERSION

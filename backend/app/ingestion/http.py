@@ -45,3 +45,21 @@ class PublicJsonAdapter:
                     raise
                 await asyncio.sleep(min(2 ** (attempt - 1), 4))
         raise RuntimeError("Public JSON request failed") from last_error
+
+    async def _get_text(self, url: str, **kwargs: Any) -> str:
+        last_error: Exception | None = None
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                response = await self.client.get(url, **kwargs)
+                response.raise_for_status()
+                return response.text
+            except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError) as exc:
+                last_error = exc
+                retryable = (
+                    not isinstance(exc, httpx.HTTPStatusError)
+                    or exc.response.status_code in RETRYABLE_STATUS_CODES
+                )
+                if not retryable or attempt == self.max_retries:
+                    raise
+                await asyncio.sleep(min(2 ** (attempt - 1), 4))
+        raise RuntimeError("Public text request failed") from last_error

@@ -6,6 +6,7 @@ from app.ingestion.contracts import (
     SourceAdapter,
 )
 from app.models.source_registry import SourceRegistry
+from app.relevance.engine import RELEVANCE_VERSION, classify_job_relevance
 from app.trust.engine import TRUST_VERSION
 
 
@@ -36,8 +37,31 @@ class IngestionService:
             for summary in summaries:
                 seen.add(summary.source_job_id)
                 existing = await self.repository.find_posting(self.source.id, summary.source_job_id)
+                rejection = await self.repository.find_rejection(
+                    self.source.id, summary.source_job_id
+                )
+                title_decision = classify_job_relevance(summary.title)
+                if title_decision.accepted is False:
+                    await self.repository.record_rejection(self.source, summary, title_decision)
+                    if existing is not None:
+                        await self.repository.deactivate_rejected_posting(existing)
+                    report.rejected_count += 1
+                    continue
+                if (
+                    title_decision.needs_detail
+                    and rejection is not None
+                    and rejection.relevance_version == RELEVANCE_VERSION
+                    and summary.source_updated_at is not None
+                    and rejection.source_updated_at == summary.source_updated_at
+                ):
+                    await self.repository.touch_rejection(rejection)
+                    report.rejected_count += 1
+                    continue
                 trust_upgrade_required = bool(
                     existing and getattr(existing, "trust_version", 0) != TRUST_VERSION
+                )
+                relevance_upgrade_required = bool(
+                    existing and getattr(existing, "relevance_version", 0) != RELEVANCE_VERSION
                 )
                 detail_required = (
                     existing is None
@@ -46,6 +70,7 @@ class IngestionService:
                     or existing.source_updated_at != summary.source_updated_at
                     or not existing.is_active
                     or trust_upgrade_required
+                    or relevance_upgrade_required
                 )
                 if not detail_required:
                     await self.repository.touch_posting(existing)
@@ -53,6 +78,23 @@ class IngestionService:
                     continue
 
                 job = await self.adapter.fetch_and_normalize(summary)
+                decision = (
+                    title_decision
+                    if title_decision.accepted is True
+                    else classify_job_relevance(job.title, job.description_text)
+                )
+                if decision.accepted is not True:
+                    await self.repository.record_rejection(
+                        self.source,
+                        summary,
+                        decision,
+                        content_hash=job.content_hash,
+                    )
+                    if existing is not None:
+                        await self.repository.deactivate_rejected_posting(existing)
+                    report.rejected_count += 1
+                    continue
+                await self.repository.clear_rejection(self.source.id, summary.source_job_id)
                 if report.sample_url is None:
                     report.sample_url = job.source_url or job.application_url
                 if existing is None:
@@ -63,7 +105,7 @@ class IngestionService:
                     await self.repository.update_posting(self.source, existing, job)
                     await self.repository.add_snapshot(existing, job)
                     report.changed_count += 1
-                elif trust_upgrade_required:
+                elif trust_upgrade_required or relevance_upgrade_required:
                     await self.repository.update_posting(self.source, existing, job)
                     report.unchanged_count += 1
                 else:

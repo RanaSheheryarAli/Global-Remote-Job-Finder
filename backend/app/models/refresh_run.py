@@ -34,6 +34,7 @@ class RefreshRun(UUIDPrimaryKeyMixin, Base):
     changed_count: Mapped[int] = mapped_column(Integer, default=0)
     unchanged_count: Mapped[int] = mapped_column(Integer, default=0)
     deactivated_count: Mapped[int] = mapped_column(Integer, default=0)
+    rejected_count: Mapped[int] = mapped_column(Integer, default=0)
     verified_today_count: Mapped[int] = mapped_column(Integer, default=0)
     worldwide_count: Mapped[int] = mapped_column(Integer, default=0)
     pakistan_eligible_count: Mapped[int] = mapped_column(Integer, default=0)

@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID
 
 from app.models.job_posting import JobPosting
 from app.models.source_registry import SourceRegistry
 from app.models.source_run import SourceRun
+
+if TYPE_CHECKING:
+    from app.models.job_rejection import JobRejection
+    from app.relevance.engine import RelevanceDecision
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +56,7 @@ class IngestionReport:
     changed_count: int = 0
     unchanged_count: int = 0
     deactivated_count: int = 0
+    rejected_count: int = 0
     sample_url: str | None = None
 
 
@@ -67,6 +72,23 @@ class IngestionRepository(Protocol):
     async def start_run(self, source: SourceRegistry) -> SourceRun: ...
 
     async def find_posting(self, source_id: UUID, source_job_id: str) -> JobPosting | None: ...
+
+    async def find_rejection(self, source_id: UUID, source_job_id: str) -> JobRejection | None: ...
+
+    async def touch_rejection(self, rejection: JobRejection) -> None: ...
+
+    async def record_rejection(
+        self,
+        source: SourceRegistry,
+        summary: SourceJobSummary,
+        decision: RelevanceDecision,
+        *,
+        content_hash: str | None = None,
+    ) -> None: ...
+
+    async def clear_rejection(self, source_id: UUID, source_job_id: str) -> None: ...
+
+    async def deactivate_rejected_posting(self, posting: JobPosting) -> None: ...
 
     async def save_new_posting(self, source: SourceRegistry, job: NormalizedJob) -> JobPosting: ...
 

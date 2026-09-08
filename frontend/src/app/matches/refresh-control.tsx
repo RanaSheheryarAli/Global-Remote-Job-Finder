@@ -16,6 +16,7 @@ type RefreshRun = {
   sources_skipped: number;
   new_count: number;
   changed_count: number;
+  rejected_count: number;
   verified_today_count: number;
   worldwide_count: number;
   pakistan_eligible_count: number;
@@ -143,6 +144,7 @@ export default function RefreshControl() {
             <div className="refreshMetrics">
               <span><strong>{run.new_count}</strong> new</span>
               <span><strong>{run.changed_count}</strong> changed</span>
+              <span><strong>{run.rejected_count ?? 0}</strong> irrelevant filtered</span>
               <span><strong>{run.verified_today_count}</strong> verified today</span>
               <span><strong>{run.worldwide_count}</strong> worldwide</span>
               <span><strong>{run.pakistan_eligible_count}</strong> Pakistan eligible</span>

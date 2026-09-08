@@ -5,13 +5,15 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ingestion.contracts import IngestionReport, NormalizedJob
+from app.ingestion.contracts import IngestionReport, NormalizedJob, SourceJobSummary
 from app.ingestion.source_health import mark_source_success
 from app.models.common import utc_now
 from app.models.job_posting import JobPosting
+from app.models.job_rejection import JobRejection
 from app.models.job_snapshot import JobSnapshot
 from app.models.source_registry import SourceRegistry
 from app.models.source_run import SourceRun
+from app.relevance.engine import RELEVANCE_VERSION, RelevanceDecision
 from app.trust.engine import (
     TRUST_VERSION,
     TrustClassification,
@@ -41,6 +43,75 @@ class SqlAlchemyIngestionRepository:
             JobPosting.source_job_id == source_job_id,
         )
         return await self.session.scalar(statement)
+
+    async def find_rejection(self, source_id: UUID, source_job_id: str) -> JobRejection | None:
+        return await self.session.scalar(
+            select(JobRejection).where(
+                JobRejection.source_registry_id == source_id,
+                JobRejection.source_job_id == source_job_id,
+            )
+        )
+
+    async def touch_rejection(self, rejection: JobRejection) -> None:
+        rejection.last_rejected_at = utc_now()
+        await self.session.flush()
+
+    async def record_rejection(
+        self,
+        source: SourceRegistry,
+        summary: SourceJobSummary,
+        decision: RelevanceDecision,
+        *,
+        content_hash: str | None = None,
+    ) -> None:
+        rejection = await self.find_rejection(source.id, summary.source_job_id)
+        now = utc_now()
+        if rejection is None:
+            rejection = JobRejection(
+                source_registry_id=source.id,
+                source_job_id=summary.source_job_id,
+                title=summary.title,
+                location_text=summary.location_text,
+                application_url=summary.application_url,
+                reason=decision.reason,
+                confidence=decision.confidence,
+                role_family=decision.role_family,
+                matched_terms=list(decision.matched_terms),
+                source_updated_at=summary.source_updated_at,
+                content_hash=content_hash,
+                relevance_version=RELEVANCE_VERSION,
+                first_rejected_at=now,
+                last_rejected_at=now,
+            )
+            self.session.add(rejection)
+        else:
+            rejection.title = summary.title
+            rejection.location_text = summary.location_text
+            rejection.application_url = summary.application_url
+            rejection.reason = decision.reason
+            rejection.confidence = decision.confidence
+            rejection.role_family = decision.role_family
+            rejection.matched_terms = list(decision.matched_terms)
+            rejection.source_updated_at = summary.source_updated_at
+            rejection.content_hash = content_hash or rejection.content_hash
+            rejection.relevance_version = RELEVANCE_VERSION
+            rejection.last_rejected_at = now
+        await self.session.flush()
+
+    async def clear_rejection(self, source_id: UUID, source_job_id: str) -> None:
+        rejection = await self.find_rejection(source_id, source_job_id)
+        if rejection is not None:
+            await self.session.delete(rejection)
+            await self.session.flush()
+
+    async def deactivate_rejected_posting(self, posting: JobPosting) -> None:
+        was_active_canonical = posting.is_active and posting.is_canonical
+        posting.is_active = False
+        posting.closed_at = utc_now()
+        posting.last_verified_at = utc_now()
+        if was_active_canonical:
+            await self._promote_family(posting.id, exclude_id=posting.id)
+        await self.session.flush()
 
     async def _find_duplicate(
         self,
@@ -182,6 +253,7 @@ class SqlAlchemyIngestionRepository:
             description_fingerprint=trust.description_fingerprint,
             dedupe_key=trust.dedupe_key,
             trust_version=TRUST_VERSION,
+            relevance_version=RELEVANCE_VERSION,
             current_content_hash=job.content_hash,
             is_active=True,
         )
@@ -236,6 +308,7 @@ class SqlAlchemyIngestionRepository:
         posting.last_seen_active_at = utc_now()
         posting.is_active = True
         self._apply_trust(posting, trust)
+        posting.relevance_version = RELEVANCE_VERSION
         if self.refresh_run_id:
             posting.updated_refresh_run_id = self.refresh_run_id
         if duplicate:
@@ -309,6 +382,7 @@ class SqlAlchemyIngestionRepository:
         run.changed_count = report.changed_count
         run.unchanged_count = report.unchanged_count
         run.deactivated_count = report.deactivated_count
+        run.rejected_count = report.rejected_count
         mark_source_success(
             run.source,
             job_count=report.received_count,
