@@ -9,13 +9,14 @@ from app.ingestion.normalization import html_to_text, parse_datetime, require_ht
 
 class HimalayasAdapter(PublicJsonAdapter):
     endpoint = "https://himalayas.app/jobs/api"
+    search_endpoint = "https://himalayas.app/jobs/api/search"
 
     def __init__(
         self,
         *,
         timeout_seconds: float = 15.0,
         max_retries: int = 3,
-        max_pages: int = 10,
+        max_pages: int = 5,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.max_pages = max_pages
@@ -26,25 +27,38 @@ class HimalayasAdapter(PublicJsonAdapter):
         )
 
     async def list_jobs(self) -> list[SourceJobSummary]:
-        summaries: list[SourceJobSummary] = []
-        cursor: str | None = None
-        for _ in range(self.max_pages):
-            params = {"limit": "20"}
-            if cursor:
-                params["cursor"] = cursor
-            payload = await self._get_json(self.endpoint, params=params)
-            if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
-                raise ValueError("Himalayas returned an invalid jobs response")
-            for job in payload["jobs"]:
-                if not isinstance(job, dict) or not job.get("guid"):
-                    continue
-                application_url = require_https_url(str(job.get("applicationLink") or ""))
-                restrictions = job.get("locationRestrictions") or []
-                location = "Worldwide" if not restrictions else ", ".join(map(str, restrictions))
-                published_at = parse_datetime(job.get("pubDate"))
-                summaries.append(
-                    SourceJobSummary(
-                        source_job_id=str(job["guid"]),
+        summaries: dict[str, SourceJobSummary] = {}
+        searches = (
+            {"worldwide": "true", "sort": "recent"},
+            {"country": "PK", "exclude_worldwide": "true", "sort": "recent"},
+        )
+        for filters in searches:
+            search_received = 0
+            for page in range(1, self.max_pages + 1):
+                payload = await self._get_json(
+                    self.search_endpoint,
+                    params={**filters, "page": str(page)},
+                )
+                if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
+                    raise ValueError("Himalayas returned an invalid jobs response")
+                jobs = payload["jobs"]
+                search_received += len(jobs)
+                for job in jobs:
+                    if not isinstance(job, dict) or not job.get("guid"):
+                        continue
+                    application_url = require_https_url(str(job.get("applicationLink") or ""))
+                    restrictions = job.get("locationRestrictions") or []
+                    labels = [
+                        str(value.get("name") or value.get("alpha2") or "")
+                        if isinstance(value, dict)
+                        else str(value)
+                        for value in restrictions
+                    ]
+                    location = "Worldwide" if not labels else ", ".join(filter(None, labels))
+                    published_at = parse_datetime(job.get("pubDate"))
+                    source_job_id = str(job["guid"])
+                    summaries[source_job_id] = SourceJobSummary(
+                        source_job_id=source_job_id,
                         title=str(job.get("title") or "").strip(),
                         location_text=location,
                         application_url=application_url,
@@ -52,18 +66,22 @@ class HimalayasAdapter(PublicJsonAdapter):
                         raw_payload=job,
                         force_normalize=True,
                     )
-                )
-            cursor = payload.get("nextCursor")
-            if not cursor:
-                break
-        return summaries
+                total = payload.get("totalCount")
+                if not jobs or (total is not None and search_received >= int(total)):
+                    break
+        return list(summaries.values())
 
     async def fetch_and_normalize(self, summary: SourceJobSummary) -> NormalizedJob:
         job = summary.raw_payload
         application_url = require_https_url(str(job.get("applicationLink") or ""))
         description_html = str(job.get("description") or "")
         published_at = parse_datetime(job.get("pubDate"))
-        restrictions = [str(value).upper() for value in job.get("locationRestrictions") or []]
+        restrictions = [
+            str(value.get("alpha2") or value.get("name") or "").upper()
+            if isinstance(value, dict)
+            else str(value).upper()
+            for value in job.get("locationRestrictions") or []
+        ]
         country_codes = [value for value in restrictions if len(value) == 2]
         compensation = {
             key: value

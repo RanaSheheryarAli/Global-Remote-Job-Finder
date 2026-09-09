@@ -7,6 +7,7 @@ from app.ingestion.jobicy import JobicyAdapter
 from app.ingestion.lever import LeverAdapter
 from app.ingestion.remoteok import RemoteOkAdapter
 from app.ingestion.remotive import RemotiveAdapter
+from app.ingestion.smartrecruiters import SmartRecruitersAdapter
 from app.ingestion.wwr import WeWorkRemotelyAdapter
 from app.models.source_registry import SourceRegistry
 
@@ -31,6 +32,12 @@ def build_source_adapter(source: SourceRegistry, settings: Settings) -> SourceAd
         )
     if source.source_type == "ashby":
         return AshbyAdapter(
+            source.board_token,
+            company_name=source.name,
+            **common,
+        )
+    if source.source_type == "smartrecruiters":
+        return SmartRecruitersAdapter(
             source.board_token,
             company_name=source.name,
             **common,

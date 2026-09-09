@@ -14,6 +14,7 @@ SourceType = Literal[
     "jobicy",
     "remotive",
     "wwr",
+    "smartrecruiters",
 ]
 ProviderRegion = Literal["global", "eu"]
 DOMAIN_RE = re.compile(r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$")

@@ -28,7 +28,7 @@ class JobicyAdapter(PublicJsonAdapter):
     async def list_jobs(self) -> list[SourceJobSummary]:
         payload = await self._get_json(
             self.endpoint,
-            params={"count": "200", "industry": "engineering"},
+            params={"count": "200", "industry": "engineering", "geo": "anywhere"},
         )
         if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
             raise ValueError("Jobicy returned an invalid jobs response")

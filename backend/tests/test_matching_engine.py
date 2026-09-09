@@ -63,15 +63,15 @@ def test_known_good_score_is_stable_and_explainable() -> None:
         now=datetime(2026, 9, 4, 8, tzinfo=UTC),
     )
     assert result.hard_gate_passed is True
-    assert result.score == 98
-    assert result.score_label == "Strong match"
+    assert result.score == 82
+    assert result.score_label == "Apply ready"
     assert result.components == {
-        "required_core_skills": 35,
-        "role_title": 20,
-        "seniority_leadership": 15,
-        "architecture_cloud_domain": 15,
-        "work_arrangement": 8,
-        "freshness": 5,
+        "required_skills": 18,
+        "responsibilities": 25,
+        "role_title": 15,
+        "skill_depth": 9,
+        "seniority": 10,
+        "domain_architecture": 5,
     }
     assert "Node.js" in result.matched_skills
     assert result.missing_skills == []
@@ -85,7 +85,7 @@ def test_unknown_eligibility_requires_opt_in() -> None:
     )
     assert result.hard_gate_passed is False
     assert result.uncertain_gate_passed is True
-    assert result.score == 94
+    assert result.score == 82
     assert result.gate_reasons == ["Pakistan eligibility needs review"]
 
 
@@ -116,6 +116,27 @@ def test_unrelated_and_entry_level_roles_are_excluded() -> None:
     assert entry.score == 0 and not entry.uncertain_gate_passed
 
 
+def test_title_technology_and_experience_are_hard_requirements() -> None:
+    technology = score_job(
+        job(
+            title="Senior Java Backend Engineer",
+            description_text="Build backend services. Requirements: Java and Spring Boot.",
+        ),
+        candidate(),
+        now=datetime(2026, 9, 4, tzinfo=UTC),
+    )
+    experience = score_job(
+        job(description_text="Requirements: 20+ years of experience with Node.js and Python."),
+        candidate(),
+        now=datetime(2026, 9, 4, tzinfo=UTC),
+    )
+
+    assert technology.score == 0
+    assert "Resume lacks title-critical skills: Java" in technology.gate_reasons
+    assert experience.score == 0
+    assert "Role requires 20+ years; resume shows 15.4" in experience.gate_reasons
+
+
 def test_resume_text_creates_reviewable_private_facts() -> None:
     text = """Sample Candidate Senior Full Stack Engineer
 candidate@example.com +1 555 0100 Karachi
@@ -134,8 +155,12 @@ Bachelor of Science 09/2007 - 06/2011
     assert facts.years_experience == 15.4
     assert facts.extraction_evidence["experience_start"] == "04/2011"
     assert facts.preferences["candidate_country"] == "PK"
+    assert facts.preferences["primary_role_families"] == ["full_stack", "backend"]
+    assert facts.preferences["secondary_role_families"] == ["ai_llm"]
+    assert facts.role_families == ["full_stack", "backend", "ai_llm"]
     assert "Node.js" in facts.skills["backend"]
     assert "ai_llm" in facts.role_families
+    assert facts.extraction_evidence["skill_strengths"]["Node.js"] in {"strong", "core"}
     assert not hasattr(facts, "email")
 
 

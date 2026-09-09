@@ -53,6 +53,7 @@ class MatchListRead(BaseModel):
     scope: str
     freshness: str | None
     min_score: int
+    company_limit: int
 
 
 class MatchRebuildRead(BaseModel):

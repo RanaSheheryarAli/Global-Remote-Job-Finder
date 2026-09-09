@@ -322,7 +322,7 @@ def _freshness(
     prior_published_at: datetime | None,
 ) -> tuple[str, str, date | None, bool, datetime | None]:
     republished = bool(published_at and prior_published_at and published_at > prior_published_at)
-    if published_at and source_type in {"greenhouse", "ashby"}:
+    if published_at and source_type in {"greenhouse", "ashby", "smartrecruiters"}:
         grade, label = "A", "Verified publication time"
     elif published_at and source_type in {"remoteok", "himalayas", "jobicy", "remotive", "wwr"}:
         grade, label = "B", "Feed-verified publication time"

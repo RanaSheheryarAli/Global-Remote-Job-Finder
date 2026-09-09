@@ -120,6 +120,27 @@ def extract_skills(text: str) -> dict[str, list[str]]:
     return result
 
 
+def extract_skill_mentions(text: str) -> dict[str, int]:
+    """Count resume evidence for each normalized skill without double-counting aliases."""
+    lowered = text.casefold()
+    result: dict[str, int] = {}
+    for definitions in SKILL_CATEGORIES.values():
+        for skill, aliases in definitions.items():
+            matches: list[tuple[int, int]] = []
+            for alias in sorted(aliases, key=len, reverse=True):
+                pattern = rf"(?<![a-z0-9]){re.escape(alias.casefold())}(?![a-z0-9])"
+                for match in re.finditer(pattern, lowered):
+                    span = match.span()
+                    if not any(
+                        start <= span[0] < end or span[0] <= start < span[1]
+                        for start, end in matches
+                    ):
+                        matches.append(span)
+            if matches:
+                result[skill] = len(matches)
+    return result
+
+
 def flatten_skills(skills: dict[str, list[str]]) -> set[str]:
     return {skill for values in skills.values() for skill in values}
 

@@ -2,13 +2,18 @@ from app.registry import load_phase3_sources
 from app.schemas.source import SourceCreate
 
 
-def test_phase3_registry_has_25_companies_and_five_public_feeds() -> None:
+def test_phase3_registry_has_28_companies_and_five_public_feeds() -> None:
     definitions = [SourceCreate.model_validate(item) for item in load_phase3_sources()]
     companies = [item for item in definitions if not item.is_aggregator]
     aggregators = [item for item in definitions if item.is_aggregator]
 
-    assert len(companies) == 25
-    assert {item.source_type for item in companies} == {"greenhouse", "lever", "ashby"}
+    assert len(companies) == 28
+    assert {item.source_type for item in companies} == {
+        "greenhouse",
+        "lever",
+        "ashby",
+        "smartrecruiters",
+    }
     assert {item.name for item in companies if item.is_gcc} == {"Careem", "Tamara"}
     assert len(aggregators) == 5
     assert {item.source_type for item in aggregators} == {

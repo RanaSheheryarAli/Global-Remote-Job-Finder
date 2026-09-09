@@ -1,3 +1,5 @@
+import ResumeUpload from "./resume-upload";
+
 type Profile = {
   id: string;
   version: number;
@@ -65,10 +67,12 @@ export default async function ProfilePage() {
         </div>
       </header>
 
+      <ResumeUpload />
+
       {!profile ? (
         <section className="emptyState">
           <h2>No profile yet</h2>
-          <p>Upload the existing PDF through the private resume API, then rebuild matches.</p>
+          <p>Select your PDF above to create the first matching profile.</p>
         </section>
       ) : (
         <>

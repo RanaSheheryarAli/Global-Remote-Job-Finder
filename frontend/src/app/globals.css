@@ -278,6 +278,17 @@ h1 {
 .headerNav { display: flex; flex-wrap: wrap; gap: 14px; }
 .headerNav a { color: var(--accent); font-weight: 700; text-decoration: none; }
 .profileHero { display: flex; justify-content: space-between; gap: 28px; margin: 34px 0 18px; border: 1px solid var(--line); border-radius: 18px; padding: 26px; background: linear-gradient(145deg, #fff, var(--wash)); }
+.resumeUpload { display: flex; align-items: center; justify-content: space-between; gap: 28px; margin: 28px 0 18px; border: 1px solid var(--line); border-radius: 18px; padding: 24px; background: var(--wash); }
+.resumeUpload h2 { margin: 0 0 8px; font-size: 25px; }
+.resumeUpload > div > p:last-child { max-width: 650px; margin: 0; color: var(--muted); line-height: 1.5; }
+.resumeUploadActions { display: grid; flex: none; min-width: 270px; gap: 9px; }
+.filePicker { overflow: hidden; border: 1px dashed #9fb3c7; border-radius: 10px; padding: 11px 13px; background: #fff; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.filePicker input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.resumeUploadActions button { border: 0; border-radius: 10px; padding: 12px 17px; background: var(--accent); color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.resumeUploadActions button:disabled { cursor: not-allowed; opacity: .55; }
+.resumeUploadActions small { max-width: 300px; line-height: 1.4; }
+.uploadSuccess { color: var(--green); }
+.uploadError { color: #a52e27; }
 .profileHero h2 { margin: 0 0 7px; font-size: 34px; letter-spacing: -.03em; }
 .profileHero > div > p:not(.eyebrow) { margin: 0; color: var(--muted); }
 .privacyStamp { display: grid; align-content: center; gap: 6px; min-width: 260px; border-radius: 13px; padding: 18px; background: var(--green-wash); color: var(--green); }
@@ -341,6 +352,8 @@ h1 {
   .cleanupControl span { text-align: left; }
   .paginationLinks { justify-content: flex-start; }
   .profileHero { flex-direction: column; }
+  .resumeUpload { align-items: stretch; flex-direction: column; }
+  .resumeUploadActions { min-width: 0; }
   .privacyStamp { min-width: 0; }
   .profileGrid, .skillsGrid, .scoreGrid { grid-template-columns: 1fr; }
   .scoreBadge { justify-items: start; }

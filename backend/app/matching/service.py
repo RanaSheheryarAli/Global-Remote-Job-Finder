@@ -5,7 +5,12 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.matching.engine import MATCHER_VERSION, candidate_facts_from_record, score_job
+from app.matching.engine import (
+    MATCHER_VERSION,
+    REVIEW_SCORE,
+    candidate_facts_from_record,
+    score_job,
+)
 from app.models.candidate_profile import CandidateProfile
 from app.models.job_match import JobMatch
 from app.models.job_posting import JobPosting
@@ -72,9 +77,9 @@ async def rebuild_profile_matches(
         match.matched_skills = result.matched_skills
         match.missing_skills = result.missing_skills
         match.evidence = result.evidence
-        if result.hard_gate_passed and result.score >= 55:
+        if result.hard_gate_passed and result.score >= REVIEW_SCORE:
             strict_visible += 1
-        elif result.uncertain_gate_passed and result.score >= 55:
+        elif result.uncertain_gate_passed and result.score >= REVIEW_SCORE:
             uncertain_visible += 1
         else:
             excluded += 1

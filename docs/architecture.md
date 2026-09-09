@@ -1,4 +1,4 @@
-# Architecture notes - Phases 1 through 6
+# Architecture notes - Phases 1 through 8
 
 ## Boundary
 
@@ -117,3 +117,16 @@ hardening, backups, and private-launch operations remain deferred to later phase
   `EMEA` stay uncertain for Pakistan without country-level evidence.
 - After ingestion and trust classification, the current profile's deterministic matches rebuild
   once. Without a profile, the refresh still completes and reports that matching was skipped.
+
+## Phase 8 matching and source behavior
+
+- Matcher V3 parses required, preferred, and title-critical skills plus responsibility themes and
+  minimum experience. Technical and experience blockers run before a six-component 100-point score.
+- Candidate skills include deterministic mention-based depth evidence. Target role families come
+  from the headline and summary instead of treating every technology mentioned anywhere as a target.
+- Ranked reads apply a PostgreSQL window over normalized employer names. The default returns one
+  best role per company, while an explicit unlimited mode remains available.
+- Uploading a new PDF from the profile screen creates an immutable current profile and immediately
+  rebuilds matches; previous profile versions remain intact.
+- SmartRecruiters joins the direct-board adapters without an applicant API key. Himalayas and
+  Jobicy use worldwide/Pakistan-targeted queries before the common software-role relevance filter.

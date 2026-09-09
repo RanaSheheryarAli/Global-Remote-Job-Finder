@@ -40,6 +40,7 @@ class JobPosting(UUIDPrimaryKeyMixin, Base):
             "pakistan_eligibility",
         ),
         Index("ix_job_postings_dedupe_key", "dedupe_key"),
+        Index("ix_job_postings_employer_name", "employer_name"),
         CheckConstraint("freshness_grade IN ('A', 'B', 'C', 'D')", name="ck_job_freshness"),
         CheckConstraint(
             "remote_mode IN ('remote', 'hybrid', 'onsite', 'unknown')",

@@ -10,6 +10,7 @@ from app.ingestion.jobicy import JobicyAdapter
 from app.ingestion.lever import LeverAdapter
 from app.ingestion.remoteok import RemoteOkAdapter
 from app.ingestion.remotive import RemotiveAdapter
+from app.ingestion.smartrecruiters import SmartRecruitersAdapter
 from app.ingestion.wwr import WeWorkRemotelyAdapter
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -100,7 +101,17 @@ async def test_himalayas_adapter_reads_location_restrictions() -> None:
         ],
         "nextCursor": None,
     }
-    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.endswith("/search")
+        assert (
+            request.url.params.get("worldwide") == "true"
+            or request.url.params.get("country") == "PK"
+        )
+        page = int(request.url.params["page"])
+        return httpx.Response(200, json=payload if page == 1 else {"jobs": [], "totalCount": 1})
+
+    transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as client:
         adapter = HimalayasAdapter(client=client)
         summaries = await adapter.list_jobs()
@@ -131,6 +142,7 @@ async def test_jobicy_adapter_requests_engineering_jobs() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.params["industry"] == "engineering"
         assert request.url.params["count"] == "200"
+        assert request.url.params["geo"] == "anywhere"
         return httpx.Response(200, json=payload)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -194,3 +206,49 @@ async def test_wwr_adapter_parses_programming_rss() -> None:
     assert job.title == "Senior React Engineer"
     assert job.location_text == "Anywhere"
     assert job.attribution_name == "We Work Remotely"
+
+
+@pytest.mark.asyncio
+async def test_smartrecruiters_adapter_reads_public_remote_jobs() -> None:
+    summary_payload = {
+        "totalFound": 1,
+        "content": [
+            {
+                "id": "sr-1",
+                "name": "Senior Backend Engineer",
+                "ref": "https://api.smartrecruiters.com/v1/companies/Example/postings/sr-1",
+                "releasedDate": "2026-09-09T08:00:00Z",
+                "location": {"fullLocation": "Worldwide", "remote": True},
+            }
+        ],
+    }
+    detail_payload = {
+        **summary_payload["content"][0],
+        "company": {"name": "Example"},
+        "postingUrl": "https://jobs.smartrecruiters.com/Example/sr-1",
+        "applyUrl": "https://jobs.smartrecruiters.com/Example/sr-1?oga=true",
+        "jobAd": {
+            "sections": {
+                "jobDescription": {"text": "<p>Build Python APIs.</p>"},
+                "qualifications": {"text": "<p>Python and PostgreSQL required.</p>"},
+            }
+        },
+        "typeOfEmployment": {"label": "Full-time"},
+        "location": {"fullLocation": "Worldwide", "remote": True},
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/postings"):
+            assert request.url.params["locationType"] == "REMOTE"
+            return httpx.Response(200, json=summary_payload)
+        return httpx.Response(200, json=detail_payload)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        adapter = SmartRecruitersAdapter("Example", company_name="Example", client=client)
+        summaries = await adapter.list_jobs()
+        job = await adapter.fetch_and_normalize(summaries[0])
+
+    assert job.employer_name == "Example"
+    assert job.workplace_type == "remote"
+    assert job.first_published_at.isoformat() == "2026-09-09T08:00:00+00:00"
+    assert job.application_url.endswith("?oga=true")

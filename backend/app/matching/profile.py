@@ -12,8 +12,10 @@ from app.matching.ontology import (
     ARCHITECTURE_ALIASES,
     DOMAIN_ALIASES,
     extract_named_traits,
+    extract_skill_mentions,
     extract_skills,
 )
+from app.matching.requirements import extract_responsibility_themes
 
 HEADLINE_RE = re.compile(
     r"\b(?:(?:Senior|Lead|Staff|Principal|Junior)\s+)?"
@@ -57,6 +59,43 @@ def _role_families(text: str) -> list[str]:
     return [family for family, terms in checks if any(term in lowered for term in terms)]
 
 
+def _skill_strengths(
+    text: str, skills: dict[str, list[str]]
+) -> tuple[dict[str, str], dict[str, int]]:
+    mentions = extract_skill_mentions(text)
+    summary = text.split("PROFESSIONAL EXPERIENCE", 1)[0]
+    summary_skills = extract_skill_mentions(summary)
+    strengths: dict[str, str] = {}
+    for skill in (item for values in skills.values() for item in values):
+        count = mentions.get(skill, 1)
+        if count >= 3 or (count >= 2 and skill in summary_skills):
+            strengths[skill] = "core"
+        elif count >= 2 or skill in summary_skills:
+            strengths[skill] = "strong"
+        else:
+            strengths[skill] = "working"
+    return strengths, mentions
+
+
+def _target_roles(
+    headline: str, summary: str, skills: dict[str, list[str]]
+) -> tuple[list[str], list[str]]:
+    headline_roles = _role_families(headline)
+    summary_roles = _role_families(summary)
+    primary = list(headline_roles)
+    backend_skills = set(skills.get("backend", []))
+    if "full_stack" in primary and backend_skills and "backend" not in primary:
+        primary.append("backend")
+    if not primary:
+        primary = ["full_stack"]
+
+    secondary: list[str] = []
+    for family in summary_roles:
+        if family not in primary and family in {"backend", "ai_llm"}:
+            secondary.append(family)
+    return primary, secondary
+
+
 def _years_experience(text: str, *, today: date) -> tuple[float, str | None]:
     professional = text
     if "PROFESSIONAL EXPERIENCE" in text:
@@ -95,18 +134,21 @@ def parse_resume_text(text: str, *, today: date | None = None) -> CandidateFacts
     )
     years, experience_start = _years_experience(text, today=today)
     skills = extract_skills(text)
+    skill_strengths, skill_mentions = _skill_strengths(text, skills)
     cloud_platforms = skills.get("cloud_devops", [])
     cloud_platforms = [item for item in cloud_platforms if item in {"AWS", "Azure", "GCP"}]
     domains = extract_named_traits(text, DOMAIN_ALIASES)
     architecture = extract_named_traits(text, ARCHITECTURE_ALIASES)
-    roles = _role_families(text)
+    summary_text = text.split("PROFESSIONAL EXPERIENCE", 1)[0]
+    primary_roles, secondary_roles = _target_roles(headline, summary_text, skills)
+    roles = [*primary_roles, *secondary_roles]
     seniority = [level for level in ("lead", "senior") if re.search(rf"\b{level}\b", text, re.I)]
     preferences = {
         "primary_role_families": [
-            family for family in ("full_stack", "backend", "ai_llm") if family in roles
+            family for family in ("full_stack", "backend", "ai_llm") if family in primary_roles
         ],
         "secondary_role_families": [
-            family for family in ("platform_cloud", "mobile") if family in roles
+            family for family in ("full_stack", "backend", "ai_llm") if family in secondary_roles
         ],
         "target_seniority": ["senior", "lead", "staff"],
         "candidate_country": "PK",
@@ -129,7 +171,10 @@ def parse_resume_text(text: str, *, today: date | None = None) -> CandidateFacts
             "experience_start": experience_start,
             "latest_role": headline,
             "skill_count": sum(len(items) for items in skills.values()),
+            "skill_strengths": skill_strengths,
+            "skill_mentions": skill_mentions,
             "architecture": architecture,
+            "responsibility_themes": sorted(extract_responsibility_themes(text)),
         },
     )
 

@@ -18,7 +18,7 @@ class SourceRegistry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint("source_type", "board_token", name="uq_source_type_board_token"),
         CheckConstraint(
             "source_type IN ('greenhouse', 'lever', 'ashby', 'remoteok', 'himalayas', "
-            "'jobicy', 'remotive', 'wwr')",
+            "'jobicy', 'remotive', 'wwr', 'smartrecruiters')",
             name="ck_source_registry_source_type",
         ),
         CheckConstraint(

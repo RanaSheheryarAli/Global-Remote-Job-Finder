@@ -11,11 +11,14 @@ A private, API-first application that discovers remote jobs, preserves source ev
 - **Phase 5 - Resume profile and matching:** privacy-minimized PDF parsing, immutable profile versions, a technology synonym ontology, role/seniority/domain extraction, hard eligibility gates, deterministic 100-point scoring, matched/missing skills, evidence, ranked-match APIs, and profile/match screens.
 - **Phase 6 - Daily refresh and global matching:** one-click all-source refresh, durable progress and partial-failure reporting, automatic match rebuilding, explicit worldwide/country/region scope, Pakistan eligibility v2, provider country evidence, and worldwide/Pakistan/unclear match filters.
 - **Phase 7 - Relevant-job ingestion and public feeds:** title/description relevance filtering before database persistence, an auditable rejection ledger, rejected-job metrics, and no-key Himalayas, Jobicy, Remotive, and We Work Remotely adapters with provider-aware polling limits.
+- **Phase 8 - Matcher V3, diversity, and resume replacement:** requirement-aware scoring, skill-depth evidence, hard technology/experience gates, one-best-role-per-company ranking, in-browser PDF resume upload with automatic re-matching, targeted public-feed queries, and SmartRecruiters support.
 
 The Phase 6 design and acceptance criteria are recorded in
 [`docs/phase6-daily-refresh-global-matching-plan.md`](docs/phase6-daily-refresh-global-matching-plan.md).
 Phase 7 implementation and deployment notes are in
 [`docs/phase7-relevance-and-public-feeds.md`](docs/phase7-relevance-and-public-feeds.md).
+Phase 8 behavior and rollout notes are in
+[`docs/phase8-matcher-v3-diversity-and-resume-upload.md`](docs/phase8-matcher-v3-diversity-and-resume-upload.md).
 The application workflow dashboard, persistent job actions, notifications, and private-launch
 operations remain deferred to later phases.
 
@@ -101,8 +104,8 @@ Then run ingestion with the returned source ID:
 curl -X POST http://localhost:8000/api/v1/sources/SOURCE_ID/ingest
 ```
 
-Supported `source_type` values are `greenhouse`, `lever`, `ashby`, `remoteok`, `himalayas`,
-`jobicy`, `remotive`, and `wwr`.
+Supported `source_type` values are `greenhouse`, `lever`, `ashby`, `smartrecruiters`, `remoteok`,
+`himalayas`, `jobicy`, `remotive`, and `wwr`.
 Public job reads do not require an applicant-owned API key. This project never requests or
 stores an employer application key.
 
@@ -130,12 +133,14 @@ qualifies a job for this filter.
 
 `POST /api/v1/resume?filename=resume.pdf` accepts a raw `application/pdf` body up to 2 MB and
 creates a private structured profile version. Raw resume text, email, and phone are not stored in
-the matching tables. `GET /api/v1/profile` returns the current reviewable facts.
+the matching tables. `GET /api/v1/profile` returns the current reviewable facts. The **My profile**
+screen provides this upload workflow and automatically rebuilds matches after a successful upload.
 
 `POST /api/v1/matches/rebuild` deterministically scores all active canonical trusted jobs.
 `GET /api/v1/matches` returns strict matches by default; `include_uncertain=true` adds jobs whose
-Pakistan eligibility needs review. The matcher uses the plan's 35/20/15/15/10/5 component weights
-and never uses generative output for the numeric score.
+Pakistan eligibility needs review. Matcher V3 uses requirement-aware 30/25/15/15/10/5 component
+weights and never uses generative output for the numeric score. It shows the best role per company
+by default; set `company_limit=0` to return all qualifying roles.
 
 ## Daily refresh and global scope
 

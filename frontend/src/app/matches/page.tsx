@@ -45,17 +45,18 @@ type MatchList = {
   scope: string;
   freshness: string | null;
   min_score: number;
+  company_limit: number;
 };
 
 type LatestRefresh = { id: string; status: string };
 
 const componentWeights: Record<string, number> = {
-  required_core_skills: 35,
-  role_title: 20,
-  seniority_leadership: 15,
-  architecture_cloud_domain: 15,
-  work_arrangement: 10,
-  freshness: 5,
+  required_skills: 30,
+  responsibilities: 25,
+  role_title: 15,
+  skill_depth: 15,
+  seniority: 10,
+  domain_architecture: 5,
 };
 
 function humanize(value: string): string {
@@ -67,11 +68,12 @@ async function getMatches(
   freshness?: string,
   refreshRunId?: string,
   page = 1,
+  companyLimit = 1,
 ): Promise<MatchList | null> {
   const baseUrl = process.env.INTERNAL_API_BASE_URL ?? "http://localhost:8000";
   try {
     const response = await fetch(
-      `${baseUrl}/api/v1/matches?scope=${scope}&page=${page}&page_size=25${freshness ? `&freshness=${freshness}` : ""}${refreshRunId ? `&refresh_run_id=${refreshRunId}` : ""}`,
+      `${baseUrl}/api/v1/matches?scope=${scope}&page=${page}&page_size=25&company_limit=${companyLimit}${freshness ? `&freshness=${freshness}` : ""}${refreshRunId ? `&refresh_run_id=${refreshRunId}` : ""}`,
       { cache: "no-store" },
     );
     return response.ok ? ((await response.json()) as MatchList) : null;
@@ -93,7 +95,7 @@ async function getLatestRefresh(): Promise<LatestRefresh | null> {
 export default async function MatchesPage({
   searchParams,
 }: {
-    searchParams: Promise<{ scope?: string; freshness?: string; refresh_run_id?: string; page?: string }>;
+    searchParams: Promise<{ scope?: string; freshness?: string; refresh_run_id?: string; page?: string; company_limit?: string }>;
 }) {
   const params = await searchParams;
   const scope = ["pakistan", "worldwide", "unclear"].includes(params.scope ?? "")
@@ -108,7 +110,11 @@ export default async function MatchesPage({
     : undefined;
   const requestedPage = Number.parseInt(params.page ?? "1", 10);
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const matches = await getMatches(scope, freshness, refreshRunId, page);
+  const requestedCompanyLimit = Number.parseInt(params.company_limit ?? "1", 10);
+  const companyLimit = Number.isFinite(requestedCompanyLimit) && requestedCompanyLimit >= 0
+    ? Math.min(requestedCompanyLimit, 10)
+    : 1;
+  const matches = await getMatches(scope, freshness, refreshRunId, page, companyLimit);
   return (
     <main>
       <header className="adminHeader jobsHeader">
@@ -138,6 +144,14 @@ export default async function MatchesPage({
                 href={`/matches?scope=${scope}&freshness=newly_discovered&refresh_run_id=${latestRefresh.id}`}
               >New this refresh</a>
             )}
+            <a
+              className={companyLimit === 1 ? "filterActive" : ""}
+              href={`/matches?scope=${scope}&company_limit=1`}
+            >Best role per company</a>
+            <a
+              className={companyLimit === 0 ? "filterActive" : ""}
+              href={`/matches?scope=${scope}&company_limit=0`}
+            >Show all company roles</a>
           </nav>
           <div className="feedMeta">
             <strong>{matches.total} match{matches.total === 1 ? "" : "es"} scoring {matches.min_score}+</strong>
@@ -179,8 +193,8 @@ export default async function MatchesPage({
                   <div className="scoreGrid">
                     {Object.entries(match.components).map(([name, value]) => (
                       <div className="scoreRow" key={name}>
-                        <div><span>{humanize(name)}</span><strong>{value}/{componentWeights[name]}</strong></div>
-                        <div className="scoreTrack"><span style={{ width: `${Math.min(100, value / componentWeights[name] * 100)}%` }} /></div>
+                        <div><span>{humanize(name)}</span><strong>{value}/{componentWeights[name] ?? 100}</strong></div>
+                        <div className="scoreTrack"><span style={{ width: `${Math.min(100, value / (componentWeights[name] ?? 100) * 100)}%` }} /></div>
                       </div>
                     ))}
                   </div>
@@ -208,6 +222,7 @@ export default async function MatchesPage({
               scope: scope === "pakistan" && !freshness ? undefined : scope,
               freshness,
               refresh_run_id: refreshRunId,
+              company_limit: companyLimit === 1 ? undefined : String(companyLimit),
             }}
           />
         </>

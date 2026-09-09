@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.routes.jobs import _job_read
 from app.core.config import get_settings
 from app.db.session import get_session
-from app.matching.engine import MATCHER_VERSION
+from app.matching.engine import APPLY_READY_SCORE, MATCHER_VERSION, REVIEW_SCORE
 from app.matching.profile import parse_resume_pdf
 from app.matching.service import rebuild_profile_matches
 from app.models.candidate_profile import CandidateProfile
@@ -159,23 +159,26 @@ async def match_summary(session: AsyncSession = Depends(get_session)) -> MatchSu
         profile_version=profile.version,
         matcher_version=MATCHER_VERSION,
         total_scored=await count(),
-        strong=await count(JobMatch.score >= 85, JobMatch.uncertain_gate_passed.is_(True)),
+        strong=await count(
+            JobMatch.score >= APPLY_READY_SCORE,
+            JobMatch.uncertain_gate_passed.is_(True),
+        ),
         good=await count(
-            JobMatch.score >= 70,
-            JobMatch.score < 85,
+            JobMatch.score >= REVIEW_SCORE,
+            JobMatch.score < APPLY_READY_SCORE,
             JobMatch.uncertain_gate_passed.is_(True),
         ),
         possible=await count(
             JobMatch.score >= 55,
-            JobMatch.score < 70,
+            JobMatch.score < REVIEW_SCORE,
             JobMatch.uncertain_gate_passed.is_(True),
         ),
         strict_visible=await count(
-            JobMatch.score >= 55,
+            JobMatch.score >= REVIEW_SCORE,
             JobMatch.hard_gate_passed.is_(True),
         ),
         uncertain_visible=await count(
-            JobMatch.score >= 55,
+            JobMatch.score >= REVIEW_SCORE,
             JobMatch.hard_gate_passed.is_(False),
             JobMatch.uncertain_gate_passed.is_(True),
         ),
@@ -192,7 +195,8 @@ async def match_summary(session: AsyncSession = Depends(get_session)) -> MatchSu
 async def list_matches(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=100),
-    min_score: int = Query(default=55, ge=0, le=100),
+    min_score: int = Query(default=REVIEW_SCORE, ge=0, le=100),
+    company_limit: int = Query(default=1, ge=0, le=10),
     include_uncertain: bool = False,
     strict_today: bool = False,
     scope: Literal["pakistan", "worldwide", "unclear"] = "pakistan",
@@ -244,18 +248,45 @@ async def list_matches(
             )
         )
 
+    company_condition = None
+    if company_limit:
+        company_ranks = (
+            select(
+                JobMatch.id.label("match_id"),
+                func.row_number()
+                .over(
+                    partition_by=func.lower(JobPosting.employer_name),
+                    order_by=(
+                        JobMatch.score.desc(),
+                        JobPosting.published_local_date.desc().nullslast(),
+                    ),
+                )
+                .label("company_rank"),
+            )
+            .join(JobPosting, JobPosting.id == JobMatch.job_posting_id)
+            .where(*conditions)
+            .subquery()
+        )
+        company_condition = JobMatch.id.in_(
+            select(company_ranks.c.match_id).where(company_ranks.c.company_rank <= company_limit)
+        )
+
+    ranked_conditions = [*conditions]
+    if company_condition is not None:
+        ranked_conditions.append(company_condition)
+
     join = (
         select(JobMatch, JobPosting, SourceRegistry)
         .join(JobPosting, JobPosting.id == JobMatch.job_posting_id)
         .join(SourceRegistry, SourceRegistry.id == JobPosting.source_registry_id)
-        .where(*conditions)
+        .where(*ranked_conditions)
     )
     total = int(
         await session.scalar(
             select(func.count())
             .select_from(JobMatch)
             .join(JobPosting, JobPosting.id == JobMatch.job_posting_id)
-            .where(*conditions)
+            .where(*ranked_conditions)
         )
         or 0
     )
@@ -296,4 +327,5 @@ async def list_matches(
         scope=scope,
         freshness=freshness,
         min_score=min_score,
+        company_limit=company_limit,
     )
